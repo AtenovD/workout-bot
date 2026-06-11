@@ -1,44 +1,41 @@
 from aiogram.fsm.state import State, StatesGroup
 
 
-class CalibrationStates(StatesGroup):
-    welcome = State()
+class OnboardingStates(StatesGroup):
     gender = State()
-    age = State()
+    birth_date = State()
     height = State()
-    weight_current = State()
-    weight_target = State()
+    current_weight = State()
+    target_weight = State()
     goal = State()
     experience = State()
-    health_flags = State()
-    equipment = State()
-    training_days = State()
+    training_structure = State()
+    split_type = State()
     duration = State()
-    summary = State()
+    equipment = State()
+    health = State()
+    schedule_mode = State()
+    schedule_days = State()
+    reminder_time = State()
 
 
 class WorkoutStates(StatesGroup):
-    choosing_type = State()
     choosing_modifier = State()
     overview = State()
-    exercise_intro = State()
     logging_set = State()
-    rest_timer = State()
-    exercise_done = State()
-    session_complete = State()
+    resting = State()
+    replacing_exercise = State()
 
 
-class EquipmentStates(StatesGroup):
-    browsing = State()
-
-
-class ProgressStates(StatesGroup):
-    menu = State()
-    add_measurement = State()
+class ProfileStates(StatesGroup):
+    entering_weight = State()
+    entering_height = State()
 
 
 class ScheduleStates(StatesGroup):
-    setup = State()
-    choose_days = State()
-    choose_time = State()
-    choose_timezone = State()
+    entering_time = State()
+
+
+class MeasurementStates(StatesGroup):
+    entering_weight = State()
+    entering_measurements = State()
