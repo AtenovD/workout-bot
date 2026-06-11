@@ -1,70 +1,68 @@
 """
-Bot entry point. Registers all routers and middlewares.
+Bot entry point — creates bot, dispatcher, registers all handlers and middlewares.
 """
 import asyncio
 import logging
+
 import structlog
 from aiogram import Bot, Dispatcher
+from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
-from aiogram.types import BotCommand
+from redis.asyncio import Redis
 
 from core.config import settings
-from core.redis import redis_client
-from bot.handlers import onboarding, workout, equipment, progress, gamification, profile, common, schedule
-from bot.middlewares.user_middleware import UserMiddleware
-from bot.middlewares.throttle_middleware import ThrottleMiddleware
+from core.db import AsyncSessionLocal
+from bot.middlewares.db import DbSessionMiddleware
+from bot.middlewares.user import UserMiddleware
 
-logger = structlog.get_logger()
+# Import all routers
+from bot.handlers import (
+    start,
+    onboarding,
+    workout,
+    progress,
+    stats,
+    profile,
+    achievements,
+    schedule,
+    menu,
+)
+
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+)
+log = structlog.get_logger()
 
 
-async def set_commands(bot: Bot):
-    commands = [
-        BotCommand(command="start", description="Запуск / калибровка"),
-        BotCommand(command="workout", description="Начать тренировку"),
-        BotCommand(command="progress", description="Мой прогресс"),
-        BotCommand(command="menu", description="Главное меню"),
-        BotCommand(command="settings", description="Настройки"),
-        BotCommand(command="help", description="Помощь"),
-    ]
-    await bot.set_my_commands(commands)
+async def main() -> None:
+    logging.basicConfig(level=logging.INFO)
 
-
-async def main():
-    logging.basicConfig(level=settings.log_level)
-
-    if settings.sentry_dsn:
-        import sentry_sdk
-        sentry_sdk.init(dsn=settings.sentry_dsn)
-
-    bot = Bot(token=settings.bot_token)
-    storage = RedisStorage(redis=redis_client)
+    bot = Bot(token=settings.BOT_TOKEN, parse_mode=ParseMode.HTML)
+    redis = Redis.from_url(settings.REDIS_URL)
+    storage = RedisStorage(redis=redis)
     dp = Dispatcher(storage=storage)
 
-    # Middlewares
+    # Middlewares (order matters: db first, then user)
+    dp.update.middleware(DbSessionMiddleware(AsyncSessionLocal))
     dp.update.middleware(UserMiddleware())
-    dp.message.middleware(ThrottleMiddleware())
 
-    # Routers
-    dp.include_router(onboarding.router)
-    dp.include_router(workout.router)
-    dp.include_router(equipment.router)
-    dp.include_router(progress.router)
-    dp.include_router(gamification.router)
-    dp.include_router(profile.router)
-    dp.include_router(schedule.router)
-    dp.include_router(common.router)
+    # Register routers
+    dp.include_routers(
+        start.router,
+        onboarding.router,
+        menu.router,
+        workout.router,
+        progress.router,
+        stats.router,
+        profile.router,
+        achievements.router,
+        schedule.router,
+    )
 
-    await set_commands(bot)
-    logger.info("Bot started", env=settings.app_env)
+    log.info("Starting bot", bot_username=(await bot.get_me()).username)
 
-    if settings.webhook_host:
-        from aiohttp import web
-        app = web.Application()
-        # webhook setup
-        await bot.set_webhook(f"{settings.webhook_host}{settings.webhook_path}")
-        logger.info("Running in webhook mode", url=f"{settings.webhook_host}{settings.webhook_path}")
-    else:
-        await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
