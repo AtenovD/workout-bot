@@ -50,5 +50,6 @@ class Exercise(Base):
     difficulty: Mapped[int] = mapped_column(Integer, default=3)
     met_value: Mapped[float | None] = mapped_column(Float)
     photo_url: Mapped[str | None] = mapped_column(String(512))
+    gif_url: Mapped[str | None] = mapped_column(String(512))
     video_url: Mapped[str | None] = mapped_column(String(512))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
