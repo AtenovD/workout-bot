@@ -1,66 +1,66 @@
 """
-Progressive overload service: calculates recommended weights and detects plateaus.
+Progression service — calculates next workout weight based on past performance.
+Uses a simple linear periodization model with RPE adjustments.
 """
-from dataclasses import dataclass
-from typing import Optional
+from decimal import Decimal
 
 
-@dataclass
-class ProgressionRecommendation:
-    recommended_weight_kg: float
-    recommended_reps: int
-    notes: str = ""
+# Weight step per exercise type
+WEIGHT_STEP = {
+    "compound": 2.5,
+    "isolation": 1.25,
+    "cardio": 0.0,
+    "mobility": 0.0,
+}
 
-
-def estimate_1rm(weight_kg: float, reps: int) -> float:
-    """Epley formula: 1RM = weight * (1 + reps/30)"""
-    if reps == 1:
-        return weight_kg
-    return weight_kg * (1 + reps / 30)
+# Modifier multipliers applied BEFORE progression
+MODIFIER_PCTS = {
+    "light": 0.85,
+    "normal": 1.0,
+    "hard": 1.1,
+}
 
 
 def calculate_next_weight(
     last_weight_kg: float,
     last_reps_done: int,
     target_reps: int,
-    last_rpe: Optional[int],
-    exercise_type: str,  # "compound" or "isolation"
-    difficulty_modifier: str,  # "light", "normal", "hard"
+    last_rpe: int | None,
+    exercise_type: str,
+    difficulty_modifier: str = "normal",
 ) -> float:
     """
-    Progressive overload logic:
-    - If last RPE <= 7 and hit target reps → increase weight
-    - If last RPE >= 9 or missed reps → decrease or hold
+    Returns the recommended weight for the next session.
+
+    Logic:
+    1. If reps_done >= target_reps → progress by WEIGHT_STEP
+    2. If reps_done < target_reps → keep weight
+    3. RPE adjustments: RPE <= 6 → deload -10%, RPE >= 9 → no progress
+    4. Modifier multiplier applied at the end (handled by workout_generator)
     """
-    step_compound = 2.5  # kg
-    step_isolation = 1.25  # kg
-    step = step_compound if exercise_type == "compound" else step_isolation
+    step = WEIGHT_STEP.get(exercise_type, 2.5)
 
-    if difficulty_modifier == "light":
-        return round(last_weight_kg * 0.85, 2)
-    elif difficulty_modifier == "hard":
-        step *= 1.5
-
-    if last_rpe is None:
-        return last_weight_kg
-
-    if last_reps_done >= target_reps and last_rpe <= 7:
-        return round(last_weight_kg + step, 2)
-    elif last_rpe >= 9 or last_reps_done < target_reps * 0.9:
-        return round(max(last_weight_kg - step, 0), 2)
+    # Core progression rule
+    if last_reps_done >= target_reps:
+        next_weight = last_weight_kg + step
     else:
-        return last_weight_kg
+        next_weight = last_weight_kg
+
+    # RPE override
+    if last_rpe is not None:
+        if last_rpe <= 6:
+            next_weight = last_weight_kg * 0.9  # deload
+        elif last_rpe >= 9:
+            next_weight = last_weight_kg  # too hard, no progress
+
+    # Round to nearest 0.5
+    next_weight = round(next_weight * 2) / 2
+
+    return max(0.0, next_weight)
 
 
-def detect_plateau(recent_weights: list[float], recent_rpes: list[int]) -> bool:
-    """Detect plateau: 3+ sessions without progress and RPE stable."""
-    if len(recent_weights) < 3:
-        return False
-    last_3 = recent_weights[-3:]
-    return max(last_3) - min(last_3) < 1.25
-
-
-def should_deload(total_hard_sessions: int, last_deload_session: int) -> bool:
-    """Suggest deload every 4-6 weeks of hard training."""
-    sessions_since_deload = total_hard_sessions - last_deload_session
-    return sessions_since_deload >= 16  # ~4 weeks at 4x/week
+def estimate_1rm(weight_kg: float, reps: int) -> float:
+    """Epley formula: 1RM = weight * (1 + reps / 30)"""
+    if reps == 1:
+        return weight_kg
+    return round(weight_kg * (1 + reps / 30), 2)
