@@ -1,14 +1,16 @@
 from typing import Callable, Awaitable, Any
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, Message, CallbackQuery
-from sqlalchemy.ext.asyncio import AsyncSession
 from core.db import AsyncSessionLocal
 from models.user import User, UserStatus
 from models.gamification import UserStats
-from sqlalchemy import select
+from sqlalchemy import select, func
+from datetime import datetime
 
 
 class UserMiddleware(BaseMiddleware):
+    """Injects current User + AsyncSession into handler data."""
+
     async def __call__(
         self,
         handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
@@ -16,7 +18,9 @@ class UserMiddleware(BaseMiddleware):
         data: dict[str, Any],
     ) -> Any:
         tg_user = None
-        if isinstance(event, (Message, CallbackQuery)):
+        if isinstance(event, Message):
+            tg_user = event.from_user
+        elif isinstance(event, CallbackQuery):
             tg_user = event.from_user
 
         if tg_user:
@@ -34,15 +38,25 @@ class UserMiddleware(BaseMiddleware):
                         language_code=tg_user.language_code or "ru",
                     )
                     session.add(user)
+                    await session.flush()
                     stats = UserStats(user_id=user.id)
                     session.add(stats)
                     await session.commit()
                     await session.refresh(user)
+                else:
+                    # Update last_active_at
+                    user.last_active_at = datetime.utcnow()
+                    await session.commit()
 
                 if user.status == UserStatus.banned:
-                    return  # Ignore banned users
+                    if isinstance(event, Message):
+                        await event.answer("⛔ Ваш аккаунт заблокирован.")
+                    elif isinstance(event, CallbackQuery):
+                        await event.answer("⛔ Аккаунт заблокирован.", show_alert=True)
+                    return
 
                 data["user"] = user
                 data["session"] = session
+                return await handler(event, data)
 
         return await handler(event, data)
