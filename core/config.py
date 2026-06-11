@@ -1,43 +1,40 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 
 class Settings(BaseSettings):
-    # Bot
-    bot_token: str
-    admin_ids: list[int] = []
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # Telegram
+    BOT_TOKEN: str
+    ADMIN_IDS: str = ""
 
     # Database
-    database_url: str
-    postgres_host: str = "postgres"
-    postgres_port: int = 5432
-    postgres_db: str = "workout_bot"
-    postgres_user: str = "workout_user"
-    postgres_password: str = ""
+    DATABASE_URL: str = "postgresql+asyncpg://workout_user:secret@localhost:5432/workout_bot"
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_DB: str = "workout_bot"
+    POSTGRES_USER: str = "workout_user"
+    POSTGRES_PASSWORD: str = "secret"
 
     # Redis
-    redis_url: str = "redis://redis:6379/0"
+    REDIS_URL: str = "redis://localhost:6379/0"
 
     # S3
-    s3_endpoint: str = "http://minio:9000"
-    s3_access_key: str = "minioadmin"
-    s3_secret_key: str = "minioadmin"
-    s3_bucket: str = "workout-bot-media"
-    s3_public_url: str = "http://localhost:9000/workout-bot-media"
-
-    # Sentry
-    sentry_dsn: Optional[str] = None
+    S3_ENDPOINT: Optional[str] = None
+    S3_ACCESS_KEY: Optional[str] = None
+    S3_SECRET_KEY: Optional[str] = None
+    S3_BUCKET: str = "workout-bot-media"
+    S3_PUBLIC_URL: Optional[str] = None
 
     # App
-    app_env: str = "development"
-    log_level: str = "INFO"
-    webhook_host: Optional[str] = None
-    webhook_path: str = "/webhook"
-    api_secret: str = "secret"
+    APP_ENV: str = "development"
+    LOG_LEVEL: str = "INFO"
+    API_SECRET: str = "change_me"
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    @property
+    def admin_ids_list(self) -> list[int]:
+        return [int(x) for x in self.ADMIN_IDS.split(",") if x.strip()]
 
 
 settings = Settings()
