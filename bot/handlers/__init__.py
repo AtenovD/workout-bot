@@ -5,6 +5,8 @@ from .schedule import router as schedule_router
 from .profile import router as profile_router
 from .calibration import router as calibration_router
 from .gamification import router as gamification_router
+from .reminder import router as reminder_router
+from .measurements import router as measurements_router
 
 __all__ = [
     "start_router",
@@ -14,4 +16,6 @@ __all__ = [
     "profile_router",
     "calibration_router",
     "gamification_router",
+    "reminder_router",
+    "measurements_router",
 ]
