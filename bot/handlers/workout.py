@@ -221,6 +221,183 @@ async def next_exercise(callback: CallbackQuery, state: FSMContext, session: Asy
     )
 
 
+
+@router.callback_query(F.data.startswith("wk:resume:"))
+async def resume_workout(callback, state, session):
+    session_id = int(callback.data.split(":")[2])
+    ws = await session.get(WorkoutSession, session_id)
+    if not ws:
+        await callback.answer("Сессия не найдена.")
+        return
+    ws.status = SessionStatus.in_progress
+    await session.commit()
+    await state.update_data(workout_session_id=session_id)
+    await state.set_state(WorkoutStates.in_exercise)
+    res2 = await session.execute(
+        select(SessionExercise)
+        .where(SessionExercise.session_id == session_id, SessionExercise.is_completed == False)
+        .order_by(asc(SessionExercise.order_index))
+    )
+    se = res2.scalars().first()
+    if not se:
+        await callback.message.edit_text("Все упражнения выполнены!")
+        return
+    ex = await session.get(Exercise, se.exercise_id)
+    await state.update_data(current_set=1, current_reps=None, current_weight=None)
+    await callback.message.edit_text(
+        f"▶️ <b>{ex.name_ru}</b>\nПодход 1 из {se.target_sets} · {se.target_reps} повт. · {se.target_weight_kg or 0:.1f} кг",
+        reply_markup=set_log_kb(se.id, 1, se.target_reps, se.target_weight_kg or 0.0),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("wk:abort:"))
+async def abort_workout(callback, state, session):
+    session_id = int(callback.data.split(":")[2])
+    ws = await session.get(WorkoutSession, session_id)
+    if ws:
+        ws.status = SessionStatus.skipped
+        ws.completed_at = datetime.utcnow()
+        await session.commit()
+    await state.clear()
+    await callback.message.edit_text(
+        "❌ Тренировка завершена досрочно. Возвращайся скорее! 💪",
+        reply_markup=main_menu_keyboard()
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("wk:regen:"))
+async def regen_workout(callback, state, session):
+    data = await state.get_data()
+    session_id = data.get("workout_session_id")
+    if session_id:
+        old_ws = await session.get(WorkoutSession, session_id)
+        if old_ws:
+            old_ws.status = SessionStatus.skipped
+            await session.commit()
+    await state.clear()
+    await state.set_state(WorkoutStates.choosing_modifier)
+    await callback.message.edit_text(
+        "🔄 <b>Перегенерируем!</b>\n\nВыбери интенсивность:",
+        reply_markup=modifier_kb(),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("set:replace:"))
+async def replace_exercise(callback, state, session, user):
+    from models.exercise_alternatives import ExerciseAlternative
+    from models.user_equipment import UserEquipment
+    from models.exercise import EquipmentCategory
+    se_id = int(callback.data.split(":")[2])
+    se = await session.get(SessionExercise, se_id)
+    if not se:
+        await callback.answer("Упражнение не найдено.")
+        return
+    ex = await session.get(Exercise, se.exercise_id)
+    alt_res = await session.execute(select(ExerciseAlternative).where(ExerciseAlternative.exercise_id == se.exercise_id))
+    alternatives = alt_res.scalars().all()
+    eq_res = await session.execute(select(UserEquipment.equipment_id).where(UserEquipment.user_id == user.id, UserEquipment.has_it == True))
+    user_eq_ids = set(eq_res.scalars().all())
+    buttons = []
+    for alt in alternatives:
+        alt_ex = await session.get(Exercise, alt.alternative_exercise_id)
+        if not alt_ex or not alt_ex.is_active:
+            continue
+        if alt_ex.equipment_category == EquipmentCategory.none or alt_ex.required_equipment_id in user_eq_ids:
+            buttons.append([InlineKeyboardButton(text=f"🔄 {alt_ex.name_ru}", callback_data=f"set:do_replace:{se_id}:{alt_ex.id}")])
+    if not buttons:
+        await callback.answer("Нет доступных замен с твоим инвентарём.", show_alert=True)
+        return
+    buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data=f"set:cancel_replace:{se_id}")])
+    await callback.message.edit_text(
+        f"🔄 Замена для <b>{ex.name_ru}</b>\nВыбери альтернативу:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("set:do_replace:"))
+async def do_replace_exercise(callback, state, session):
+    parts = callback.data.split(":")
+    se_id, new_ex_id = int(parts[2]), int(parts[3])
+    se = await session.get(SessionExercise, se_id)
+    new_ex = await session.get(Exercise, new_ex_id)
+    if not se or not new_ex:
+        await callback.answer("Ошибка замены.")
+        return
+    se.exercise_id = new_ex_id
+    await session.commit()
+    data = await state.get_data()
+    cs = data.get("current_set", 1)
+    await state.update_data(current_reps=None, current_weight=None)
+    await callback.message.edit_text(
+        f"✅ Заменено на <b>{new_ex.name_ru}</b>\nПодход {cs} из {se.target_sets} · {se.target_reps} повт. · {se.target_weight_kg or 0:.1f} кг",
+        reply_markup=set_log_kb(se_id, cs, se.target_reps, se.target_weight_kg or 0.0),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("set:cancel_replace:"))
+async def cancel_replace(callback, state, session):
+    se_id = int(callback.data.split(":")[2])
+    se = await session.get(SessionExercise, se_id)
+    ex = await session.get(Exercise, se.exercise_id)
+    data = await state.get_data()
+    cs = data.get("current_set", 1)
+    reps = data.get("current_reps") or se.target_reps
+    weight = data.get("current_weight") if data.get("current_weight") is not None else (se.target_weight_kg or 0.0)
+    await callback.message.edit_text(
+        f"<b>{ex.name_ru}</b>\nПодход {cs} из {se.target_sets} · {reps} повт. · {weight:.1f} кг",
+        reply_markup=set_log_kb(se_id, cs, reps, weight),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("set:hard:"))
+async def set_too_hard(callback, state, session):
+    se_id = int(callback.data.split(":")[2])
+    se = await session.get(SessionExercise, se_id)
+    ex = await session.get(Exercise, se.exercise_id)
+    data = await state.get_data()
+    cs = data.get("current_set", 1)
+    weight = data.get("current_weight") if data.get("current_weight") is not None else (se.target_weight_kg or 0.0)
+    reps = data.get("current_reps") or se.target_reps
+    step = 2.5 if ex.exercise_type and ex.exercise_type.value == "compound" else 1.25
+    new_weight = max(0.0, round(weight - step, 2))
+    new_reps = max(1, reps - 1)
+    se.target_weight_kg = new_weight
+    await state.update_data(current_weight=new_weight, current_reps=new_reps, feedback_rpe=9)
+    await session.commit()
+    await callback.message.edit_reply_markup(reply_markup=set_log_kb(se_id, cs, new_reps, new_weight))
+    await callback.answer(f"⬇️ Снизил до {new_weight:.1f} кг / {new_reps} повт.")
+
+
+@router.callback_query(F.data.startswith("set:easy:"))
+async def set_too_easy(callback, state, session):
+    se_id = int(callback.data.split(":")[2])
+    se = await session.get(SessionExercise, se_id)
+    ex = await session.get(Exercise, se.exercise_id)
+    data = await state.get_data()
+    cs = data.get("current_set", 1)
+    weight = data.get("current_weight") if data.get("current_weight") is not None else (se.target_weight_kg or 0.0)
+    reps = data.get("current_reps") or se.target_reps
+    step = 2.5 if ex.exercise_type and ex.exercise_type.value == "compound" else 1.25
+    new_weight = round(weight + step, 2)
+    new_reps = reps + 1
+    se.target_weight_kg = new_weight
+    await state.update_data(current_weight=new_weight, current_reps=new_reps, feedback_rpe=6)
+    await session.commit()
+    await callback.message.edit_reply_markup(reply_markup=set_log_kb(se_id, cs, new_reps, new_weight))
+    await callback.answer(f"⬆️ Поднял до {new_weight:.1f} кг / {new_reps} повт.")
+
+
 @router.callback_query(F.data == "wk:finish")
 async def finish_workout(callback: CallbackQuery, state: FSMContext, user: User, session: AsyncSession):
     data = await state.get_data()
