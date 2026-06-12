@@ -8,16 +8,13 @@ from .gamification import router as gamification_router
 from .reminder import router as reminder_router
 from .measurements import router as measurements_router
 from .referral import router as referral_router
+from .settings import router as settings_router
+from .help import router as help_router
+from .admin import router as admin_router
 
 __all__ = [
-    "start_router",
-    "workout_router",
-    "equipment_router",
-    "schedule_router",
-    "profile_router",
-    "calibration_router",
-    "gamification_router",
-    "reminder_router",
-    "measurements_router",
-    "referral_router",
+    "start_router", "workout_router", "equipment_router",
+    "schedule_router", "profile_router", "calibration_router",
+    "gamification_router", "reminder_router", "measurements_router",
+    "referral_router", "settings_router", "help_router", "admin_router",
 ]
