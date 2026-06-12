@@ -6,7 +6,8 @@ class Referral(Base):
     __tablename__ = "referrals"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    inviter_id = Column(BigInteger, nullable=False, index=True)
-    invitee_id = Column(BigInteger, nullable=False, unique=True)
-    bonus_granted = Column(Boolean, default=False)
+    referrer_id = Column(BigInteger, nullable=False, index=True)
+    referee_id = Column(BigInteger, nullable=False, unique=True)
+    code = Column(String(32), nullable=False, index=True)
+    rewarded = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
