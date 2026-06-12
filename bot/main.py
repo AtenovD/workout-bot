@@ -1,12 +1,9 @@
-from bot.handlers.admin import router as admin_router
-from bot.handlers.help import router as help_router
-from bot.handlers.settings import router as settings_router
-from bot.services.scheduler import start_scheduler
 """
 Bot entry point — creates bot, dispatcher, registers all handlers and middlewares.
 """
 import asyncio
 import logging
+import os
 
 import structlog
 from aiogram import Bot, Dispatcher
@@ -18,10 +15,10 @@ from core.config import settings
 from core.db import AsyncSessionLocal
 from bot.middlewares.db import DbSessionMiddleware
 from bot.middlewares.user import UserMiddleware
+from bot.services.scheduler import start_scheduler
 
-# Import all routers
+# Legacy module-style routers (existing handlers)
 from bot.handlers import (
-    start,
     onboarding,
     workout,
     progress,
@@ -32,15 +29,24 @@ from bot.handlers import (
     menu,
 )
 
+# New individual routers
+from bot.handlers.calibration import router as calibration_router
+from bot.handlers.equipment import router as equipment_router
+from bot.handlers.gamification import router as gamification_router
+from bot.handlers.reminder import router as reminder_router
+from bot.handlers.measurements import router as measurements_router
+from bot.handlers.referral import router as referral_router
+from bot.handlers.settings import router as settings_router
+from bot.handlers.help import router as help_router
+from bot.handlers.admin import router as admin_router, set_admins
+
 structlog.configure(
-    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO)
 )
 log = structlog.get_logger()
 
 
 async def main() -> None:
-    logging.basicConfig(level=logging.INFO)
-
     bot = Bot(token=settings.BOT_TOKEN, parse_mode=ParseMode.HTML)
     redis = Redis.from_url(settings.REDIS_URL)
     storage = RedisStorage(redis=redis)
@@ -50,12 +56,26 @@ async def main() -> None:
     dp.update.middleware(DbSessionMiddleware(AsyncSessionLocal))
     dp.update.middleware(UserMiddleware())
 
-    # Register routers
+    # Load admin IDs from env
+    admin_ids = [int(x) for x in os.environ.get("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
+    set_admins(admin_ids)
+
+    # Register all routers
+    # Note: onboarding handles /start and initial calibration flow
+    # calibration_router handles /calibration command (re-calibration)
     dp.include_routers(
-        start.router,
         onboarding.router,
         menu.router,
+        calibration_router,
+        equipment_router,
         workout.router,
+        gamification_router,
+        measurements_router,
+        reminder_router,
+        referral_router,
+        settings_router,
+        help_router,
+        admin_router,
         progress.router,
         stats.router,
         profile.router,
