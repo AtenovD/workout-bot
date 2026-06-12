@@ -25,6 +25,7 @@ class WorkoutStates(StatesGroup):
     logging_set = State()
     resting = State()
     replacing_exercise = State()
+    in_exercise = State()
 
 
 class ProfileStates(StatesGroup):
