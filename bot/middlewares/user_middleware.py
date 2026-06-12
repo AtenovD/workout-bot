@@ -4,7 +4,7 @@ from aiogram.types import TelegramObject, Message, CallbackQuery
 from core.db import AsyncSessionLocal
 from models.user import User, UserStatus
 from models.gamification import UserStats
-from sqlalchemy import select, func
+from sqlalchemy import select
 from datetime import datetime
 
 
@@ -36,27 +36,30 @@ class UserMiddleware(BaseMiddleware):
                         username=tg_user.username,
                         first_name=tg_user.first_name,
                         language_code=tg_user.language_code or "ru",
+                        status=UserStatus.active,
+                        last_active_at=datetime.utcnow(),
                     )
                     session.add(user)
                     await session.flush()
+
+                    # Create UserStats immediately on first encounter
                     stats = UserStats(user_id=user.id)
                     session.add(stats)
                     await session.commit()
                     await session.refresh(user)
                 else:
-                    # Update last_active_at
+                    # Ensure UserStats exists for old users
+                    stats_res = await session.execute(
+                        select(UserStats).where(UserStats.user_id == user.id)
+                    )
+                    if not stats_res.scalar_one_or_none():
+                        session.add(UserStats(user_id=user.id))
+
                     user.last_active_at = datetime.utcnow()
                     await session.commit()
-
-                if user.status == UserStatus.banned:
-                    if isinstance(event, Message):
-                        await event.answer("⛔ Ваш аккаунт заблокирован.")
-                    elif isinstance(event, CallbackQuery):
-                        await event.answer("⛔ Аккаунт заблокирован.", show_alert=True)
-                    return
+                    await session.refresh(user)
 
                 data["user"] = user
                 data["session"] = session
-                return await handler(event, data)
 
         return await handler(event, data)
