@@ -7,6 +7,7 @@ from .calibration import router as calibration_router
 from .gamification import router as gamification_router
 from .reminder import router as reminder_router
 from .measurements import router as measurements_router
+from .referral import router as referral_router
 
 __all__ = [
     "start_router",
@@ -18,4 +19,5 @@ __all__ = [
     "gamification_router",
     "reminder_router",
     "measurements_router",
+    "referral_router",
 ]
