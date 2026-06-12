@@ -1,3 +1,4 @@
+from bot.services.scheduler import start_scheduler
 """
 Bot entry point — creates bot, dispatcher, registers all handlers and middlewares.
 """
@@ -62,6 +63,7 @@ async def main() -> None:
     log.info("Starting bot", bot_username=(await bot.get_me()).username)
 
     await bot.delete_webhook(drop_pending_updates=True)
+    start_scheduler(bot)
     await dp.start_polling(bot)
 
 
