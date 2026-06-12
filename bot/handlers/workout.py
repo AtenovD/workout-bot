@@ -136,6 +136,18 @@ async def begin_workout(callback: CallbackQuery, state: FSMContext, session: Asy
     ex = await session.get(Exercise, first_se.exercise_id)
     await state.update_data(current_set=1)
     await state.set_state(WorkoutStates.logging_set)
+
+    # Send exercise media if available
+    if getattr(ex, 'gif_url', None):
+        try:
+            await callback.message.answer_animation(ex.gif_url, caption=f"<b>{ex.name_ru}</b>", parse_mode="HTML")
+        except Exception:
+            pass
+    elif getattr(ex, 'photo_url', None):
+        try:
+            await callback.message.answer_photo(ex.photo_url, caption=f"<b>{ex.name_ru}</b>", parse_mode="HTML")
+        except Exception:
+            pass
     await callback.message.edit_text(
         f"<b>{ex.name_ru}</b>\nПодход 1 из {first_se.target_sets} · "
         f"{first_se.target_reps} повт. · {first_se.target_weight_kg or 0:.1f} кг",
