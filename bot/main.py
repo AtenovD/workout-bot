@@ -1,3 +1,6 @@
+from bot.handlers.admin import router as admin_router
+from bot.handlers.help import router as help_router
+from bot.handlers.settings import router as settings_router
 from bot.services.scheduler import start_scheduler
 """
 Bot entry point — creates bot, dispatcher, registers all handlers and middlewares.
