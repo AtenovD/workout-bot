@@ -12,11 +12,13 @@ from models.user import User
 from models.profile import Profile
 from models.workout import WorkoutSession, SessionExercise, ExerciseSet, SessionStatus, DifficultyModifier
 from models.gamification import UserStats
+from models.challenge import UserChallenge
 from models.exercise import Exercise
 from services.gamification import calculate_xp, get_level_from_xp, get_title
 from services.calories import calculate_calories_burned, DEFAULT_MET
 from services.pr_detection import detect_prs
 from services.plateau_detection import check_and_apply_plateau
+from services.deload_on_return import apply_return_deload
 from services.rest_timer import run_rest_timer
 import asyncio
 
@@ -448,7 +450,23 @@ async def finish_workout(callback: CallbackQuery, state: FSMContext, user: User,
     if stats.current_streak > stats.longest_streak:
         stats.longest_streak = stats.current_streak
     await session.commit()
-    lvl_text = f"\n🎉 <b>Уровень {stats.level} — {get_title(stats.level)}!</b>" if stats.level > old_level else ""
+    # Increment 30-day challenge
+    challenge = await session.execute(
+        select(UserChallenge).where(UserChallenge.user_id == user.id)
+    )
+    challenge = challenge.scalar_one_or_none()
+    if challenge and not challenge.completed:
+        today_str = date.today().isoformat()
+        done = set(challenge.workout_days or [])
+        done.add(today_str)
+        challenge.current_day = len(done)
+        challenge.workout_days = list(done)
+        if len(done) >= 30:
+            challenge.completed = True
+            challenge.completed_at = datetime.now()
+        await session.commit()
+    
+        lvl_text = f"\n🎉 <b>Уровень {stats.level} — {get_title(stats.level)}!</b>" if stats.level > old_level else ""
     summary_text = (
         f"🏁 <b>Тренировка завершена!</b>{lvl_text}\n\n"
         f"⏱ {ws.duration_min} мин · 🏋️ {total_vol:.0f} кг · 🔥 ~{ws.calories_burned} ккал\n"
