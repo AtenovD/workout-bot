@@ -443,14 +443,25 @@ async def finish_workout(callback: CallbackQuery, state: FSMContext, user: User,
     if stats.current_streak > stats.longest_streak:
         stats.longest_streak = stats.current_streak
     await session.commit()
-    await state.clear()
     lvl_text = f"\n🎉 <b>Уровень {stats.level} — {get_title(stats.level)}!</b>" if stats.level > old_level else ""
-    await callback.message.answer(
+    summary_text = (
         f"🏁 <b>Тренировка завершена!</b>{lvl_text}\n\n"
         f"⏱ {ws.duration_min} мин · 🏋️ {total_vol:.0f} кг · 🔥 ~{ws.calories_burned} ккал\n"
-        f"⭐ +{xp_r.xp_earned} XP · 📊 Ур. {stats.level} · 🔥 Стрик {stats.current_streak} дн.",
-        reply_markup=main_menu_keyboard(), parse_mode="HTML"
+        f"⭐ +{xp_r.xp_earned} XP · 📊 Ур. {stats.level} · 🔥 Стрик {stats.current_streak} дн."
     )
+
+    # PR detection
+    pr_messages = await detect_prs(session, callback.from_user.id, ws.id)
+    if pr_messages:
+        summary_text += "\n\n" + "\n".join(pr_messages)
+
+    # Plateau + deload check for next session
+    plateau_notices = await check_and_apply_plateau(session, callback.from_user.id)
+    if plateau_notices:
+        summary_text += "\n\n" + "\n".join(plateau_notices)
+
+    await callback.message.answer(summary_text, reply_markup=main_menu_keyboard(), parse_mode="HTML")
+    await state.clear()
 
 
 @router.callback_query(F.data.startswith("set:skip:"))
