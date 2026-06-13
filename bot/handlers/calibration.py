@@ -54,9 +54,7 @@ async def start_calibration(event, state: FSMContext, user: User, session: Async
     buttons = [[InlineKeyboardButton(text=label, callback_data=f"cal:a:{q['key']}:{val}")] for label, val in q["options"]]
     buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data="menu:main")])
     
-    text = f"📋 <b>Калибровка — вопрос 1 из {len(CALIBRATION_QUESTIONS)}</b>
-
-{q['question']}"
+    text = f"📋 <b>Калибровка — вопрос 1 из {len(CALIBRATION_QUESTIONS)}</b>\n\n{q['question']}"
     
     if is_callback:
         await event.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
@@ -88,12 +86,7 @@ async def process_cal_answer(callback: CallbackQuery, state: FSMContext, user: U
     if idx >= len(CALIBRATION_QUESTIONS):
         await state.clear()
         await callback.message.edit_text(
-            "✅ <b>Калибровка завершена!</b>
-
-"
-            "Теперь тренировки будут подбираться с учётом твоих предпочтений.
-"
-            "Начни тренировку через главное меню!",
+            "✅ <b>Калибровка завершена!</b>\n\nТеперь тренировки будут подбираться с учётом твоих предпочтений.\n\nНачни тренировку через главное меню!",
             reply_markup=main_menu_keyboard(),
             parse_mode="HTML"
         )
@@ -106,9 +99,7 @@ async def process_cal_answer(callback: CallbackQuery, state: FSMContext, user: U
     
     await state.update_data(cal_idx=idx, cal_answers=answers)
     await callback.message.edit_text(
-        f"📋 <b>Калибровка — вопрос {idx+1} из {len(CALIBRATION_QUESTIONS)}</b>
-
-{q['question']}",
+        f"📋 <b>Калибровка — вопрос {idx+1} из {len(CALIBRATION_QUESTIONS)}</b>\n\n{q['question']}",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         parse_mode="HTML"
     )

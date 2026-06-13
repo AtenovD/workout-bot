@@ -74,20 +74,12 @@ async def show_stats(event, user: User, session: AsyncSession):
     total_wk = total_res.scalar() or 0
     
     text = (
-        f"🏆 <b>{user.full_name or user.username or 'Атлет'}</b>
-
-"
-        f"🟣 Уровень: <b>{level}</b>
-"
-        f"⭐️ XP: <b>{xp}</b> / {xp_next}
-"
-        f"{bar} {progress_pct}%
-
-"
-        f"🔥 Стрик: <b>{stats.current_streak or 0}</b> дней
-"
-        f"📅 Тренировок на этой неделе: <b>{wk_this_week}</b>
-"
+        f"🏆 <b>{user.full_name or user.username or 'Атлет'}</b>\n\n"
+        f"🟣 Уровень: <b>{level}</b>\n"
+        f"⭐️ XP: <b>{xp}</b> / {xp_next}\n"
+        f"{bar} {progress_pct}%\n\n"
+        f"🔥 Стрик: <b>{stats.current_streak or 0}</b> дней\n"
+        f"📅 Тренировок на этой неделе: <b>{wk_this_week}</b>\n"
         f"📊 Всего тренировок: <b>{total_wk}</b>"
     )
     
@@ -110,9 +102,7 @@ async def show_achievements(callback: CallbackQuery, user: User, session: AsyncS
     
     if not achievements:
         await callback.message.edit_text(
-            "🏆 <b>Достижения</b>
-
-Пока нет достижений в базе.",
+            "🏆 <b>Достижения</b>\n\nПока нет достижений в базе.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="◀️ Назад", callback_data="menu:stats")]
             ]),
@@ -127,20 +117,15 @@ async def show_achievements(callback: CallbackQuery, user: User, session: AsyncS
                   AchievementCategory.milestone: "🎯 Рубежи",
                   AchievementCategory.special: "🌟 Особые"}
     
-    text = "🏆 <b>Достижения</b>
-
-"
+    text = "🏆 <b>Достижения</b>\n\n"
     cur_cat = None
     for ach in achievements:
         if ach.category != cur_cat:
             cur_cat = ach.category
-            text += f"
-{cat_labels.get(cur_cat, cur_cat.value)}:
-"
+            text += f"\n{cat_labels.get(cur_cat, cur_cat.value)}:\n"
         icon = "✅" if ach.id in user_ach_ids else "🔒"
         tier_icon = TIER_ICONS.get(ach.tier, "")
-        text += f"  {icon} {tier_icon} <b>{ach.name}</b> — {ach.description or ''}
-"
+        text += f"  {icon} {tier_icon} <b>{ach.name}</b> — {ach.description or ''}\n"
     
     await callback.message.edit_text(
         text,
@@ -164,16 +149,11 @@ async def show_records(callback: CallbackQuery, user: User, session: AsyncSessio
     records = pr_res.all()
     
     if not records:
-        text = "🏋️ <b>Рекорды</b>
-
-Пока нет записей. Начни тренироваться!"
+        text = "🏋️ <b>Рекорды</b>\n\nПока нет записей. Начни тренироваться!"
     else:
-        text = "🏋️ <b>Твои рекорды</b>
-
-"
+        text = "🏋️ <b>Твои рекорды</b>\n\n"
         for pr, ex_name in records:
-            text += f"🏆 <b>{ex_name}</b>: {pr.weight_kg:.1f} кг × {pr.reps}
-"
+            text += f"🏆 <b>{ex_name}</b>: {pr.weight_kg:.1f} кг × {pr.reps}\n"
     
     await callback.message.edit_text(
         text,
@@ -196,19 +176,14 @@ async def show_history(callback: CallbackQuery, user: User, session: AsyncSessio
     workouts = wk_res.scalars().all()
     
     if not workouts:
-        text = "📊 <b>История тренировок</b>
-
-Пока пусто."
+        text = "📊 <b>История тренировок</b>\n\nПока пусто."
     else:
-        text = "📊 <b>Последние тренировки</b>
-
-"
+        text = "📊 <b>Последние тренировки</b>\n\n"
         for wk in workouts:
             date_str = wk.completed_at.strftime("%d.%m.%Y") if wk.completed_at else "?"
             modifier = wk.modifier or "normal"
             mod_icons = {"easy": "☀️", "normal": "💪", "hard": "🔥"}
-            text += f"{mod_icons.get(modifier, '')} {date_str} — {modifier}
-"
+            text += f"{mod_icons.get(modifier, '')} {date_str} — {modifier}\n"
     
     await callback.message.edit_text(
         text,
