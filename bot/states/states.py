@@ -13,6 +13,7 @@ class OnboardingStates(StatesGroup):
     split_type = State()
     duration = State()
     equipment = State()
+    language = State()
     health = State()
     schedule_mode = State()
     schedule_days = State()
