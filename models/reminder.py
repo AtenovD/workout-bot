@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, BigInteger, String, Boolean, Time, DateTime, func
-from core.database import Base
+from core.db import Base
 
 
 class Reminder(Base):
