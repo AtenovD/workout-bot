@@ -21,7 +21,7 @@ EXERCISES_NEW = [
     # TRX / ПЕТЛИ (4 упражнения) — нет GIF в базе, используем ближайшие аналоги
     # ═══════════════════════════════════════════
     {"code": "trx_row", "name_ru": "Тяга в TRX", "name_en": "TRX Row",
-     "muscle": "back", "equipment": "Other", "eq_cat": "portable", "type": "compound", "difficulty": 2,
+     "muscle": "lats", "equipment": "Other", "eq_cat": "portable", "type": "compound", "difficulty": 2,
      "met": 5.0, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Inverted_Row_with_Straps/Inverted_Row_with_Straps.gif",
      "instructions": ["Держись за ручки TRX, тело прямое под углом", "Тяни грудь к рукоятям, сводя лопатки", "Медленно выпрямляй руки"]},
     {"code": "trx_pushup", "name_ru": "Отжимания в TRX", "name_en": "TRX Push-Up",
@@ -41,7 +41,7 @@ EXERCISES_NEW = [
     # РЕЗИНКИ / RESISTANCE BAND (4 упражнения)
     # ═══════════════════════════════════════════
     {"code": "band_pull_apart", "name_ru": "Разведение резинки перед собой", "name_en": "Band Pull Apart",
-     "muscle": "shoulders", "equipment": "Bands", "eq_cat": "portable", "type": "isolation", "difficulty": 1,
+     "muscle": "rear_delts", "equipment": "Bands", "eq_cat": "portable", "type": "isolation", "difficulty": 1,
      "met": 3.5, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Band_Pull_Apart/Band_Pull_Apart.gif",
      "instructions": ["Держи резинку на ширине плеч прямыми руками", "Разводи руки в стороны до касания груди", "Медленно возвращай"]},
     {"code": "band_squat", "name_ru": "Приседания с резинкой", "name_en": "Band Squat",
@@ -49,7 +49,7 @@ EXERCISES_NEW = [
      "met": 5.0, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Raises_-_With_Bands/Calf_Raises_-_With_Bands.gif",
      "instructions": ["Встань на резинку, концы в руках на плечах", "Приседай до параллели", "Вставай, выталкивая колени наружу"]},
     {"code": "band_good_morning", "name_ru": "Гуд-морнинг с резинкой", "name_en": "Band Good Morning",
-     "muscle": "back", "equipment": "Bands", "eq_cat": "portable", "type": "compound", "difficulty": 2,
+     "muscle": "lats", "equipment": "Bands", "eq_cat": "portable", "type": "compound", "difficulty": 2,
      "met": 4.0, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Band_Good_Morning_Pull_Through/Band_Good_Morning_Pull_Through.gif",
      "instructions": ["Встань на резинку, конец закинь на плечи", "Наклоняйся вперёд, сохраняя спину прямой", "Разгибайся усилием ягодиц и хамстрингов"]},
     {"code": "band_curl", "name_ru": "Сгибания рук с резинкой", "name_en": "Band Curl",
@@ -65,11 +65,11 @@ EXERCISES_NEW = [
      "met": 9.0, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Double_Kettlebell_Swing/Double_Kettlebell_Swing.gif",
      "instructions": ["Ноги шире плеч, гиря между ног", "Толчок бёдрами — гиря летит до уровня плеч", "Контролируй опускание, снова уходи в наклон"]},
     {"code": "kettlebell_windmill", "name_ru": "Мельница с гирей", "name_en": "Kettlebell Windmill",
-     "muscle": "shoulders", "equipment": "Kettlebells", "eq_cat": "stationary", "type": "compound", "difficulty": 3,
+     "muscle": "rear_delts", "equipment": "Kettlebells", "eq_cat": "stationary", "type": "compound", "difficulty": 3,
      "met": 6.0, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Advanced_Kettlebell_Windmill/Advanced_Kettlebell_Windmill.gif",
      "instructions": ["Жим гири над головой одной рукой", "Наклоняйся в сторону, другой рукой тянись к полу", "Возвращайся медленно"]},
     {"code": "kettlebell_row", "name_ru": "Тяга гири в наклоне", "name_en": "Kettlebell Row",
-     "muscle": "back", "equipment": "Kettlebells", "eq_cat": "stationary", "type": "compound", "difficulty": 2,
+     "muscle": "lats", "equipment": "Kettlebells", "eq_cat": "stationary", "type": "compound", "difficulty": 2,
      "met": 5.5, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Alternating_Kettlebell_Row/Alternating_Kettlebell_Row.gif",
      "instructions": ["Наклон вперёд, спина прямая", "Тяни гирю к поясу, локоть вдоль корпуса", "Опускай с контролем"]},
 
@@ -85,7 +85,7 @@ EXERCISES_NEW = [
      "met": 2.0, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/90_90_Hamstring/90_90_Hamstring.gif",
      "instructions": ["Сядь в позу 90/90: оба колена под прямым углом", "Наклоняйся вперёд к передней ноге", "Удерживай 30–45 секунд"]},
     {"code": "cat_cow_stretch", "name_ru": "Кошка-корова", "name_en": "Cat Cow Stretch",
-     "muscle": "back", "equipment": "Body Only", "eq_cat": "none", "type": "mobility", "difficulty": 1,
+     "muscle": "lats", "equipment": "Body Only", "eq_cat": "none", "type": "mobility", "difficulty": 1,
      "met": 2.0, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cat_Stretch/Cat_Stretch.gif",
      "instructions": ["Упор на ладони и колени", "Вдох — прогнись вниз (корова)", "Выдох — округли спину вверх (кошка)"]},
     {"code": "world_greatest_stretch", "name_ru": "Величайшая растяжка", "name_en": "World Greatest Stretch",
@@ -101,7 +101,7 @@ EXERCISES_NEW = [
      "met": 7.0, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Squat/Bodyweight_Squat.gif",
      "instructions": ["Стоя на одной ноге, вторую вытяни вперёд", "Медленно приседай до самого низа", "Разгибай опорную ногу и вставай"]},
     {"code": "pike_pushup", "name_ru": "Отжимания из пики", "name_en": "Pike Push-Up",
-     "muscle": "shoulders", "equipment": "Body Only", "eq_cat": "none", "type": "compound", "difficulty": 3,
+     "muscle": "front_delts", "equipment": "Body Only", "eq_cat": "none", "type": "compound", "difficulty": 3,
      "met": 5.5, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pike_Push-up/Pike_Push-up.gif",
      "instructions": ["Позиция перевёрнутой V (таз высоко)", "Сгибай руки, опуская голову к полу", "Отжимайся вверх, не опуская таз"]},
     {"code": "dragon_flag", "name_ru": "Флаг дракона", "name_en": "Dragon Flag",
@@ -125,15 +125,15 @@ EXERCISES_NEW = [
     # ЗАДНЯЯ ДЕЛЬТА / REAR DELTS (3 упражнения)
     # ═══════════════════════════════════════════
     {"code": "face_pull", "name_ru": "Тяга к лицу в кроссовере", "name_en": "Face Pull",
-     "muscle": "shoulders", "equipment": "Cable", "eq_cat": "stationary", "type": "isolation", "difficulty": 2,
+     "muscle": "rear_delts", "equipment": "Cable", "eq_cat": "stationary", "type": "isolation", "difficulty": 2,
      "met": 4.5, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Face_Pull/Face_Pull.gif",
      "instructions": ["Трос на уровне лица, хват нейтральный", "Тяни к ушам, разводя локти в стороны", "Медленно возвращай"]},
     {"code": "cable_rear_delt_fly", "name_ru": "Разведение в кроссовере на заднюю дельту", "name_en": "Cable Rear Delt Fly",
-     "muscle": "shoulders", "equipment": "Cable", "eq_cat": "stationary", "type": "isolation", "difficulty": 2,
+     "muscle": "rear_delts", "equipment": "Cable", "eq_cat": "stationary", "type": "isolation", "difficulty": 2,
      "met": 4.0, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rear_Delt_Fly/Cable_Rear_Delt_Fly.gif",
      "instructions": ["Тросы крест-накрест, наклон вперёд", "Разводи руки в стороны, не сгибая локти", "Контролируй обратное движение"]},
     {"code": "bent_over_rear_delt_raise", "name_ru": "Разведение гантелей в наклоне (задняя дельта)", "name_en": "Bent-Over Rear Delt Raise",
-     "muscle": "shoulders", "equipment": "Dumbbell", "eq_cat": "stationary", "type": "isolation", "difficulty": 2,
+     "muscle": "rear_delts", "equipment": "Dumbbell", "eq_cat": "stationary", "type": "isolation", "difficulty": 2,
      "met": 4.0, "gif_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Dumbbell_Rear_Deltoid_Raise_With_Head_On_Bench/Bent_Over_Dumbbell_Rear_Deltoid_Raise_With_Head_On_Bench.gif",
      "instructions": ["Наклон вперёд, спина прямая, гантели вниз", "Разводи руки в стороны до уровня плеч", "Удерживай 1 сек, медленно опускай"]},
 
