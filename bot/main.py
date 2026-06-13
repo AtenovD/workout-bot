@@ -75,6 +75,7 @@ async def main() -> None:
         reminder_router,
         referral_router,
         settings_router,
+        challenge_router,
         help_router,
         admin_router,
         progress.router,
