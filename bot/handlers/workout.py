@@ -15,6 +15,10 @@ from models.gamification import UserStats
 from models.exercise import Exercise
 from services.gamification import calculate_xp, get_level_from_xp, get_title
 from services.calories import calculate_calories_burned, DEFAULT_MET
+from services.pr_detection import detect_prs
+from services.plateau_detection import check_and_apply_plateau
+from services.rest_timer import run_rest_timer
+import asyncio
 
 router = Router()
 
@@ -181,8 +185,9 @@ async def set_done(callback: CallbackQuery, state: FSMContext, session: AsyncSes
         await session.commit()
         next_set = current_set + 1
         await state.update_data(current_set=next_set, current_reps=None, current_weight=None)
+        asyncio.create_task(run_rest_timer(callback.bot, callback.message.chat.id, se_id, next_set, se.rest_seconds or 90))
         await callback.message.edit_reply_markup(reply_markup=rest_kb(se_id, next_set))
-        await callback.answer(f"✅ Подход {current_set} засчитан! Отдыхай {se.rest_seconds} сек.")
+        await callback.answer(f"✅ Подход {current_set} засчитан! Отдыхай {se.rest_seconds or 90} сек.")
 
 
 @router.callback_query(F.data.startswith("set:rm:") | F.data.startswith("set:rp:") |
@@ -451,12 +456,12 @@ async def finish_workout(callback: CallbackQuery, state: FSMContext, user: User,
     )
 
     # PR detection
-    pr_messages = await detect_prs(session, callback.from_user.id, ws.id)
+    pr_messages = await detect_prs(session, user.id, ws.id)
     if pr_messages:
         summary_text += "\n\n" + "\n".join(pr_messages)
 
     # Plateau + deload check for next session
-    plateau_notices = await check_and_apply_plateau(session, callback.from_user.id)
+    plateau_notices = await check_and_apply_plateau(session, user.id)
     if plateau_notices:
         summary_text += "\n\n" + "\n".join(plateau_notices)
 
