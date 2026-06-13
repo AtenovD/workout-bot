@@ -12,12 +12,12 @@ REST_SECONDS = 90
 
 def _rest_kb(se_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="➡️ Следующий подход", callback_data=f"rest:done:{se_id}"),
-        InlineKeyboardButton(text="⏭ Пропустить отдых", callback_data=f"rest:skip:{se_id}"),
+        InlineKeyboardButton(text="➡️ Следующий подход", callback_data=ff"rest:next:{se_id}:{next_set}"),
+        InlineKeyboardButton(text="⏭ Пропустить отдых", callback_data=ff"rest:skip:{se_id}:{next_set}"),
     ]])
 
 
-async def run_rest_timer(bot: Bot, chat_id: int, se_id: int, seconds: int = REST_SECONDS) -> None:
+async def run_rest_timer(bot: Bot, chat_id: int, se_id: int, next_set: int, seconds: int = REST_SECONDS) -> None:
     """Fire-and-forget: send rest message, count down, then alert user."""
     msg = await bot.send_message(
         chat_id,
