@@ -14,6 +14,7 @@ from models.gamification import Achievement, AchievementCategory, AchievementTie
 from scripts.exercises_chest_back import EXERCISES_CHEST_BACK
 from scripts.exercises_rest import EXERCISES_REST
 from scripts.exercises_extra import ALL_EXTRA_EXERCISES
+from scripts.exercises_new import EXERCISES_NEW
 
 
 # ─── Reference: Equipment ─────────────────────────────────────────────────────
