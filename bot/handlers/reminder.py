@@ -5,6 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from datetime import time
 
 from models.reminder import Reminder
 from core.database import get_session
@@ -35,9 +36,8 @@ class ReminderStates(StatesGroup):
 async def show_reminders(msg_or_cb, state: FSMContext, session: AsyncSession = None):
     if not session:
         session = await get_session()
-    
+
     user_id = msg_or_cb.from_user.id
-    text = msg_or_cb.message if isinstance(msg_or_cb, CallbackQuery) else msg_or_cb
     target = msg_or_cb.message if isinstance(msg_or_cb, CallbackQuery) else msg_or_cb
 
     # Load all reminders
@@ -55,9 +55,7 @@ async def show_reminders(msg_or_cb, state: FSMContext, session: AsyncSession = N
     kb.adjust(1)
 
     await target.answer(
-        "🔔 <b>Напоминания</b>
-
-"
+        "🔔 <b>Напоминания</b>\n\n"
         "Настрой уведомления:",
         reply_markup=kb.as_markup(), parse_mode="HTML"
     )
@@ -79,11 +77,10 @@ async def toggle_reminder(cb: CallbackQuery, state: FSMContext, session: AsyncSe
         existing.enabled = not existing.enabled
     else:
         default_info = REMINDER_DEFAULTS.get(rtype, {})
-        import datetime
         h, m = map(int, default_info.get("time", "08:00").split(":"))
         existing = Reminder(
             user_id=user_id, type=rtype,
-            time_of_day=datetime.time(h, m),
+            time_of_day=time(h, m),
             enabled=True
         )
         session.add(existing)

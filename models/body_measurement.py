@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, BigInteger, Float, DateTime, func
-from core.database import Base
+from sqlalchemy import Column, Integer, BigInteger, Float, DateTime, String, func
+from core.db import Base
 
 
 class BodyMeasurement(Base):

@@ -10,10 +10,10 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 REST_SECONDS = 90
 
 
-def _rest_kb(se_id: int) -> InlineKeyboardMarkup:
+def _rest_kb(se_id: int, next_set: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="➡️ Следующий подход", callback_data=ff"rest:next:{se_id}:{next_set}"),
-        InlineKeyboardButton(text="⏭ Пропустить отдых", callback_data=ff"rest:skip:{se_id}:{next_set}"),
+        InlineKeyboardButton(text="➡️ Следующий подход", callback_data=f"rest:next:{se_id}:{next_set}"),
+        InlineKeyboardButton(text="⏭ Пропустить отдых", callback_data=f"rest:skip:{se_id}:{next_set}"),
     ]])
 
 

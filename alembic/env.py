@@ -2,15 +2,14 @@ import asyncio, os
 from logging.config import fileConfig
 from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
-from core.database import Base
+from core.db import Base
 
 # Import all models
-from models import user, workout_session, personal_record
-from models import body_measurement, reminder, referral
-try:
-    from models import gamification
-except ImportError:
-    pass
+from models import user, workout
+from models import reminder, referral
+from models import gamification, exercise, profile, challenge
+from models import measurements, schedule, user_equipment
+from models import exercise_alternatives, records
 
 config = context.config
 if config.config_file_name:
@@ -20,10 +19,10 @@ target_metadata = Base.metadata
 
 DB_URL = (
     "postgresql+asyncpg://"
-    + os.environ.get("DB_USER","user") + ":"
-    + os.environ.get("DB_PASS","pass") + "@"
-    + os.environ.get("DB_HOST","localhost") + "/"
-    + os.environ.get("DB_NAME","workout")
+    + os.environ.get("POSTGRES_USER","user") + ":"
+    + os.environ.get("POSTGRES_PASSWORD","pass") + "@"
+    + os.environ.get("POSTGRES_HOST","localhost") + "/"
+    + os.environ.get("POSTGRES_DB","workout")
 )
 
 

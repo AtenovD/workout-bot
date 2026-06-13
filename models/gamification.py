@@ -1,5 +1,5 @@
 from sqlalchemy import BigInteger, Integer, String, Enum, Float, Numeric, Date, DateTime, ForeignKey, JSON, Boolean, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 from core.db import Base
 
@@ -28,6 +28,8 @@ class UserStats(Base):
     total_volume_kg: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     skipped_count: Mapped[int] = mapped_column(Integer, default=0)
     last_workout_date: Mapped[Date | None] = mapped_column(Date)
+
+    user: Mapped["User"] = relationship("User", back_populates="stats")
 
 class Achievement(Base):
     __tablename__ = "achievements"

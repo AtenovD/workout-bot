@@ -2,22 +2,19 @@ from aiogram.fsm.state import State, StatesGroup
 
 
 class OnboardingStates(StatesGroup):
+    language = State()
+    welcome = State()
     gender = State()
-    birth_date = State()
+    age = State()
     height = State()
-    current_weight = State()
-    target_weight = State()
+    weight_current = State()
+    weight_target = State()
     goal = State()
     experience = State()
-    training_structure = State()
-    split_type = State()
-    duration = State()
+    health_flags = State()
     equipment = State()
-    language = State()
-    health = State()
-    schedule_mode = State()
-    schedule_days = State()
-    reminder_time = State()
+    training_days = State()
+    duration = State()
 
 
 class WorkoutStates(StatesGroup):
