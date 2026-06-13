@@ -51,8 +51,8 @@ def health_kb(selected: list[str]):
     rows = []
     for label, code in flags:
         mark = "✅" if code in selected else "➕"
-        rows.append([(f"{mark} {label}", f"cal:health:{code}")])
-    rows.append([("➡️ Далее", "cal:health:done")])
+        rows.append([InlineKeyboardButton(text=f"{mark} {label}", callback_data=f"cal:health:{code}")])
+    rows.append([InlineKeyboardButton(text="➡️ Далее", callback_data="cal:health:done")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def days_kb():
@@ -117,7 +117,7 @@ async def onboarding_language(callback: CallbackQuery, state: FSMContext):
     await state.update_data(language=lang)
     await state.set_state(OnboardingStates.welcome)
     await callback.message.edit_text(
-        f"👋 <b>Привет, {message.from_user.first_name}!</b>\n\n"
+        f"👋 <b>Привет, {callback.from_user.first_name}!</b>\n\n"
         "Я — твой <b>персональный AI-тренер</b>. Я:\n"
         "• Создам тренировки строго под твой инвентарь\n"
         "• Буду вести упражнение за упражнением с фото\n"
@@ -203,7 +203,7 @@ async def step_experience(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text("💪 <b>Шаг 7 / 11 — Опыт</b>", reply_markup=experience_kb(), parse_mode="HTML")
 
 
-@router.callback_query(F.data.startswith("cal:exp:"))
+@router.callback_query(OnboardingStates.experience, F.data.startswith("cal:exp:"))
 async def step_health_flags(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split(":")
     await state.update_data(experience_level=parts[2], experience_months=int(parts[3]), health_flags=[])

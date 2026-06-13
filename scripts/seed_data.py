@@ -9,8 +9,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import select, text
 from core.db import AsyncSessionLocal, engine, Base
+from models.user import User
+from models.profile import Profile
 from models.exercise import Equipment, MuscleGroup, Exercise, EquipmentCategory, ExerciseType
-from models.gamification import Achievement, AchievementCategory, AchievementTier
+from models.gamification import Achievement, AchievementCategory, AchievementTier, UserStats
 from scripts.exercises_chest_back import EXERCISES_CHEST_BACK
 from scripts.exercises_rest import EXERCISES_REST
 from scripts.exercises_extra import ALL_EXTRA_EXERCISES
@@ -19,20 +21,59 @@ from scripts.exercises_new import EXERCISES_NEW
 
 # ─── Reference: Equipment ─────────────────────────────────────────────────────
 EQUIPMENT_DATA = [
-    {"code": "barbell",    "name_ru": "Штанга",            "name_en": "Barbell",           "category": "stationary", "icon": "🏋️"},
-    {"code": "dumbbell",   "name_ru": "Гантели",           "name_en": "Dumbbells",         "category": "portable",   "icon": "💪"},
-    {"code": "kettlebell", "name_ru": "Гиря",              "name_en": "Kettlebell",        "category": "portable",   "icon": "⚙️"},
-    {"code": "cable",      "name_ru": "Блочный тренажёр",  "name_en": "Cable Machine",     "category": "stationary", "icon": "🔗"},
-    {"code": "machine",    "name_ru": "Тренажёр",          "name_en": "Machine",           "category": "stationary", "icon": "🤖"},
-    {"code": "pullup_bar", "name_ru": "Турник",            "name_en": "Pull-up Bar",       "category": "stationary", "icon": "🔱"},
-    {"code": "dip_bar",    "name_ru": "Брусья",            "name_en": "Dip Bar",           "category": "stationary", "icon": "⚡"},
-    {"code": "bench",      "name_ru": "Скамья",            "name_en": "Bench",             "category": "stationary", "icon": "🪑"},
-    {"code": "resistance_band", "name_ru": "Резинка",      "name_en": "Resistance Band",   "category": "portable",   "icon": "🔴"},
-    {"code": "trx",        "name_ru": "TRX петли",         "name_en": "TRX Suspension",    "category": "portable",   "icon": "🟡"},
-    {"code": "ab_wheel",   "name_ru": "Ролик для пресса",  "name_en": "Ab Wheel",         "category": "portable",   "icon": "⭕"},
-    {"code": "jump_rope",  "name_ru": "Скакалка",          "name_en": "Jump Rope",         "category": "portable",   "icon": "🪢"},
-    {"code": "box",        "name_ru": "Плиобокс",          "name_en": "Plyometric Box",    "category": "stationary", "icon": "📦"},
-    {"code": "bodyweight", "name_ru": "Без оборудования",  "name_en": "Bodyweight",        "category": "none",       "icon": "🧍"},
+    # ── Bodyweight (1) ──
+    {"code": "bodyweight", "name_ru": "Без оборудования", "name_en": "Bodyweight", "category": "none", "icon": "🧍"},
+
+    # ── Portable (18) ──
+    {"code": "dumbbell",           "name_ru": "Гантели разборные",    "name_en": "Adjustable Dumbbells",      "category": "portable", "icon": "💪"},
+    {"code": "kettlebell",         "name_ru": "Гиря",                 "name_en": "Kettlebell",                "category": "portable", "icon": "⚙️"},
+    {"code": "barbell_ez_short",   "name_ru": "EZ-гриф короткий",     "name_en": "EZ Barbell (Short)",        "category": "portable", "icon": "🔱"},
+    {"code": "fitball",            "name_ru": "Фитбол",               "name_en": "Stability Ball",            "category": "portable", "icon": "⚽"},
+    {"code": "medicine_ball",      "name_ru": "Медбол",               "name_en": "Medicine Ball",             "category": "portable", "icon": "🔮"},
+    {"code": "sandbag",            "name_ru": "Сэндбэг",              "name_en": "Sandbag",                   "category": "portable", "icon": "🎒"},
+    {"code": "weight_vest",        "name_ru": "Жилет-утяжелитель",    "name_en": "Weight Vest",               "category": "portable", "icon": "🦺"},
+    {"code": "sliders",            "name_ru": "Слайдеры",             "name_en": "Sliders",                   "category": "portable", "icon": "🔵"},
+    {"code": "resistance_band",    "name_ru": "Эспандер-резинка",     "name_en": "Resistance Band",           "category": "portable", "icon": "🔴"},
+    {"code": "trx",                "name_ru": "TRX петли",            "name_en": "TRX Suspension",            "category": "portable", "icon": "🟡"},
+    {"code": "ab_wheel",           "name_ru": "Ролик для пресса",     "name_en": "Ab Wheel",                  "category": "portable", "icon": "⭕"},
+    {"code": "jump_rope",          "name_ru": "Скакалка",             "name_en": "Jump Rope",                 "category": "portable", "icon": "🪢"},
+    {"code": "foam_roller",        "name_ru": "Валик для миофасции",  "name_en": "Foam Roller",               "category": "portable", "icon": "🟫"},
+    {"code": "lacrosse_ball",      "name_ru": "Мяч лакросса",         "name_en": "Lacrosse Ball",             "category": "portable", "icon": "⚪"},
+    {"code": "plyobox_light",      "name_ru": "Лёгкий плиобокс",      "name_en": "Light Plyometric Box",      "category": "portable", "icon": "📦"},
+    {"code": "battle_ropes",       "name_ru": "Боевые верёвки",       "name_en": "Battle Ropes",              "category": "portable", "icon": "🔗"},
+    {"code": "chains",             "name_ru": "Цепи-утяжелители",     "name_en": "Resistance Chains",         "category": "portable", "icon": "⛓️"},
+    {"code": "suspension_trainer", "name_ru": "Петли для подвеса",    "name_en": "Suspension Trainer",        "category": "portable", "icon": "🟢"},
+
+    # ── Stationary (32) ──
+    {"code": "barbell_ez_curl",    "name_ru": "EZ-гриф кривой",       "name_en": "EZ Barbell (Curved)",       "category": "stationary", "icon": "🏋️"},
+    {"code": "barbell_trap",       "name_ru": "Трэп-гриф",            "name_en": "Trap Bar",                  "category": "stationary", "icon": "▲"},
+    {"code": "barbell_standard",   "name_ru": "Штанга стандартная",   "name_en": "Standard Barbell",          "category": "stationary", "icon": "🏋️"},
+    {"code": "smith_machine",      "name_ru": "Машина Смита",         "name_en": "Smith Machine",             "category": "stationary", "icon": "🤖"},
+    {"code": "bench_incline",      "name_ru": "Скамья с наклоном",    "name_en": "Incline Bench",             "category": "stationary", "icon": "📐"},
+    {"code": "bench_decline",      "name_ru": "Скамья обратный наклон","name_en": "Decline Bench",             "category": "stationary", "icon": "📉"},
+    {"code": "bench_scott",        "name_ru": "Скамья Скотта",        "name_en": "Scott Bench",               "category": "stationary", "icon": "🪑"},
+    {"code": "bench_flat",         "name_ru": "Скамья горизонтальная","name_en": "Flat Bench",                "category": "stationary", "icon": "🪑"},
+    {"code": "leg_press",          "name_ru": "Жим ногами",           "name_en": "Leg Press",                 "category": "stationary", "icon": "🦵"},
+    {"code": "hack_squat",         "name_ru": "Гакк-приседания",      "name_en": "Hack Squat",                "category": "stationary", "icon": "📦"},
+    {"code": "leg_extension",      "name_ru": "Разгибание ног",       "name_en": "Leg Extension",             "category": "stationary", "icon": "🦵"},
+    {"code": "leg_curl",           "name_ru": "Сгибание ног",         "name_en": "Leg Curl",                  "category": "stationary", "icon": "🦵"},
+    {"code": "chest_fly",          "name_ru": "Пек-дек",              "name_en": "Chest Fly Machine",         "category": "stationary", "icon": "🐦"},
+    {"code": "shoulder_press",     "name_ru": "Жим плечами",          "name_en": "Shoulder Press Machine",    "category": "stationary", "icon": "💪"},
+    {"code": "lat_pulldown",       "name_ru": "Тяга верхнего блока",  "name_en": "Lat Pulldown",              "category": "stationary", "icon": "⬇️"},
+    {"code": "low_row",            "name_ru": "Тяга нижнего блока",   "name_en": "Low Row Machine",           "category": "stationary", "icon": "⬆️"},
+    {"code": "cable_machine",      "name_ru": "Блочный кроссовер",    "name_en": "Cable Machine",             "category": "stationary", "icon": "🔗"},
+    {"code": "seated_row",         "name_ru": "Тяга к поясу сидя",    "name_en": "Seated Row",                "category": "stationary", "icon": "🪑"},
+    {"code": "calf_machine",       "name_ru": "Тренажёр для голени",  "name_en": "Calf Machine",              "category": "stationary", "icon": "🦵"},
+    {"code": "glute_bridge",       "name_ru": "Ягодичный мостик",     "name_en": "Glute Bridge Machine",      "category": "stationary", "icon": "🌉"},
+    {"code": "hyperextension",     "name_ru": "Гиперэкстензия",       "name_en": "Hyperextension",            "category": "stationary", "icon": "↩️"},
+    {"code": "pullup_bar",         "name_ru": "Турник",               "name_en": "Pull-up Bar",               "category": "stationary", "icon": "🔱"},
+    {"code": "dip_bar",            "name_ru": "Брусья",               "name_en": "Dip Bar",                   "category": "stationary", "icon": "⚡"},
+    {"code": "gymnastics_rings",   "name_ru": "Кольца гимнастические","name_en": "Gymnastics Rings",          "category": "stationary", "icon": "⭕"},
+    {"code": "crossfit_rig",       "name_ru": "CrossFit-рама",        "name_en": "CrossFit Rig",              "category": "stationary", "icon": "🔷"},
+    {"code": "treadmill",          "name_ru": "Беговая дорожка",      "name_en": "Treadmill",                 "category": "stationary", "icon": "🏃"},
+    {"code": "stationary_bike",    "name_ru": "Велотренажёр",         "name_en": "Stationary Bike",           "category": "stationary", "icon": "🚴"},
+    {"code": "elliptical",         "name_ru": "Эллиптический станок", "name_en": "Elliptical Machine",        "category": "stationary", "icon": "🔄"},
+    {"code": "rowing_machine",     "name_ru": "Гребной тренажёр",     "name_en": "Rowing Machine",            "category": "stationary", "icon": "🚣"},
 ]
 
 # ─── Reference: Muscle Groups ─────────────────────────────────────────────────
@@ -169,8 +210,9 @@ async def seed_exercises(session, equipment_map, muscle_map):
 
 
 async def main():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Tables are already created by migrations
+    # async with engine.begin() as conn:
+    #     await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSessionLocal() as session:
         print("Seeding equipment...")
