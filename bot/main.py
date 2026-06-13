@@ -37,6 +37,7 @@ from bot.handlers.reminder import router as reminder_router
 from bot.handlers.measurements import router as measurements_router
 from bot.handlers.referral import router as referral_router
 from bot.handlers.settings import router as settings_router
+from bot.handlers.challenge import router as challenge_router
 from bot.handlers.help import router as help_router
 from bot.handlers.admin import router as admin_router, set_admins
 
