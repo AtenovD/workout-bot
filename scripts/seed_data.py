@@ -115,7 +115,7 @@ async def insert_or_update(session, model_class, unique_field, items):
 
 async def seed_exercises(session, equipment_map, muscle_map):
     """Seed all exercises from all source files."""
-    all_exercises = EXERCISES_CHEST_BACK + EXERCISES_REST + ALL_EXTRA_EXERCISES
+    all_exercises = EXERCISES_CHEST_BACK + EXERCISES_REST + ALL_EXTRA_EXERCISES + EXERCISES_NEW
     count_new = 0
     for ex in all_exercises:
         res = await session.execute(select(Exercise).where(Exercise.code == ex["code"]))
@@ -206,7 +206,7 @@ async def main():
 
         print("Seeding exercises...")
         new_ex = await seed_exercises(session, equipment_map, muscle_map)
-        total = len(EXERCISES_CHEST_BACK) + len(EXERCISES_REST) + len(ALL_EXTRA_EXERCISES)
+        total = len(EXERCISES_CHEST_BACK) + len(EXERCISES_REST) + len(ALL_EXTRA_EXERCISES) + len(EXERCISES_NEW)
         print(f"  Exercises: {total} total, {new_ex} new")
 
         print("Seeding achievements...")
