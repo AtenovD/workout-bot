@@ -101,6 +101,155 @@ async def build_equipment_items_kb(session: AsyncSession, selected_ids: list[int
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+@router.message(CommandStart())
+async def cmd_start(message: Message, state: FSMContext, user: User, session: AsyncSession):
+    result = await session.execute(select(Profile).where(Profile.user_id == user.id))
+    profile = result.scalar_one_or_none()
+    if profile and profile.calibrated_at:
+        await message.answer(
+            f"👋 С возвращением, {message.from_user.first_name}!\n\n"
+            "Выбери действие:",
+            reply_markup=main_menu_keyboard()
+        )
+        return
+    await state.set_state(OnboardingStates.language)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="onboarding_lang:ru"),
+         InlineKeyboardButton(text="🇬🇧 English", callback_data="onboarding_lang:en")]
+    ])
+    await message.answer("🌍 Выбери язык / Choose language:", reply_markup=kb)
+    return
+
+
+@router.callback_query(F.data.startswith("onboarding_lang:"))
+async def onboarding_language(callback: CallbackQuery, state: FSMContext):
+    lang = callback.data.split(":")[1]
+    await state.update_data(language=lang)
+    await state.set_state(OnboardingStates.welcome)
+    await callback.message.edit_text(
+        f"👋 <b>Привет, {message.from_user.first_name}!</b>\n\n"
+        "Я — твой <b>персональный AI-тренер</b>. Я:\n"
+        "• Создам тренировки строго под твой инвентарь\n"
+        "• Буду вести упражнение за упражнением с фото\n"
+        "• Слежу за прогрессом и поднимаю нагрузку сам\n"
+        "• Мотивирую уровнями, XP и достижениями\n\n"
+        "Пройдём быструю калибровку — займёт ~2 минуты 🚀",
+        reply_markup=_kb([("🚀 Поехали!", "cal:start")]),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data == "cal:start")
+async def step_gender(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(OnboardingStates.gender)
+    await callback.message.edit_text(
+        "👤 <b>Шаг 1 / 11 — Пол</b>",
+        reply_markup=gender_kb(), parse_mode="HTML"
+    )
+
+
+@router.callback_query(F.data.startswith("cal:gender:"))
+async def step_age(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(gender=callback.data.split(":")[2])
+    await state.set_state(OnboardingStates.age)
+    await callback.message.edit_text(
+        "🎂 <b>Шаг 2 / 11 — Возраст</b>\n\nНапиши сколько лет (например <code>28</code>):",
+        parse_mode="HTML"
+    )
+
+
+@router.message(OnboardingStates.age)
+async def step_height(message: Message, state: FSMContext):
+    try:
+        age = int(message.text.strip())
+        assert 10 <= age <= 100
+    except Exception:
+        await message.answer("Введи корректный возраст (10–100):"); return
+    await state.update_data(age=age)
+    await state.set_state(OnboardingStates.height)
+    await message.answer("📏 <b>Шаг 3 / 11 — Рост</b>\n\nВ сантиметрах (например <code>178</code>):", parse_mode="HTML")
+
+
+@router.message(OnboardingStates.height)
+async def step_weight_current(message: Message, state: FSMContext):
+    try:
+        h = int(message.text.strip())
+        assert 100 <= h <= 250
+    except Exception:
+        await message.answer("Введи рост в см (100–250):"); return
+    await state.update_data(height_cm=h)
+    await state.set_state(OnboardingStates.weight_current)
+    await message.answer("⚖️ <b>Шаг 4 / 11 — Текущий вес</b>\n\nВ кг (например <code>75.5</code>):", parse_mode="HTML")
+
+
+@router.message(OnboardingStates.weight_current)
+async def step_weight_target(message: Message, state: FSMContext):
+    try:
+        w = float(message.text.replace(",", ".").strip())
+        assert 30 <= w <= 300
+    except Exception:
+        await message.answer("Введи вес в кг (например 75.5):"); return
+    await state.update_data(current_weight_kg=w)
+    await state.set_state(OnboardingStates.weight_target)
+    await message.answer("🎯 <b>Шаг 5 / 11 — Целевой вес</b>\n\nВ кг:", parse_mode="HTML")
+
+
+@router.message(OnboardingStates.weight_target)
+async def step_goal(message: Message, state: FSMContext):
+    try:
+        w = float(message.text.replace(",", ".").strip())
+        assert 30 <= w <= 300
+    except Exception:
+        await message.answer("Введи целевой вес в кг:"); return
+    await state.update_data(target_weight_kg=w)
+    await state.set_state(OnboardingStates.goal)
+    await message.answer("🏁 <b>Шаг 6 / 11 — Цель</b>\n\nВыбери главную цель:", reply_markup=goal_kb(), parse_mode="HTML")
+
+
+@router.callback_query(F.data.startswith("cal:goal:"))
+async def step_experience(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(goal=callback.data.split(":")[2])
+    await state.set_state(OnboardingStates.experience)
+    await callback.message.edit_text("💪 <b>Шаг 7 / 11 — Опыт</b>", reply_markup=experience_kb(), parse_mode="HTML")
+
+
+@router.callback_query(F.data.startswith("cal:exp:"))
+async def step_health_flags(callback: CallbackQuery, state: FSMContext):
+    parts = callback.data.split(":")
+    await state.update_data(experience_level=parts[2], experience_months=int(parts[3]), health_flags=[])
+    await state.set_state(OnboardingStates.health_flags)
+    await callback.message.edit_text(
+        "🏥 <b>Шаг 8 / 11 — Здоровье</b>\n\nОтметь всё что актуально:",
+        reply_markup=health_kb([]), parse_mode="HTML"
+    )
+
+
+@router.callback_query(OnboardingStates.health_flags, F.data.startswith("cal:health:"))
+async def toggle_health(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    flag = callback.data.split(":")[2]
+    if flag == "done":
+        await state.update_data(equipment_ids=[])
+        await state.set_state(OnboardingStates.equipment)
+        await callback.message.edit_text(
+            "🎒 <b>Шаг 9 / 11 — Инвентарь</b>\n\nОтметь что у тебя есть:",
+            reply_markup=await build_category_kb(session, []),
+            parse_mode="HTML"
+        )
+        return
+    data = await state.get_data()
+    flags = data.get("health_flags", [])
+    if flag == "none":
+        flags = ["none"]
+    else:
+        flags = [f for f in flags if f != "none"]
+        if flag in flags: flags.remove(flag)
+        else: flags.append(flag)
+    await state.update_data(health_flags=flags)
+    await callback.message.edit_reply_markup(reply_markup=health_kb(flags))
+    await callback.answer()
+
+
+
 # ── Onboarding: step 1 (pick category) ──
 @router.callback_query(OnboardingStates.equipment, F.data.startswith("eq_cat:"))
 async def eq_pick_category_onboarding(call: CallbackQuery, state: FSMContext, session: AsyncSession):
