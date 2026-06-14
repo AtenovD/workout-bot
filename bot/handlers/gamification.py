@@ -28,7 +28,7 @@ def stats_kb():
         [InlineKeyboardButton(text="🏆 Достижения", callback_data="gam:achieve")],
         [InlineKeyboardButton(text="🏋️ Рекорды", callback_data="gam:records")],
         [InlineKeyboardButton(text="📊 История тренировок", callback_data="gam:history")],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="menu:main")],
+        [InlineKeyboardButton(text="◀️ Назад", callback_data="menu:back")],
     ])
 
 
