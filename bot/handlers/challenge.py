@@ -115,7 +115,7 @@ async def challenge_from_menu(callback: CallbackQuery, user: User, session: Asyn
     if not challenge:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔥 Присоединиться", callback_data="challenge:join")],
-            [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:main")],
+            [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:back")],
         ])
         await callback.message.edit_text(
             "🏆 <b>30-дневный челлендж</b>
@@ -143,7 +143,7 @@ async def challenge_from_menu(callback: CallbackQuery, user: User, session: Asyn
         status = f"🔥 День {challenge.current_day}/{CHALLENGE_DAYS}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:main")],
+        [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:back")],
     ])
 
     await callback.message.edit_text(
