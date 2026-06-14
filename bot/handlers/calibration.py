@@ -52,7 +52,7 @@ async def start_calibration(event, state: FSMContext, user: User, session: Async
     
     q = CALIBRATION_QUESTIONS[0]
     buttons = [[InlineKeyboardButton(text=label, callback_data=f"cal:a:{q['key']}:{val}")] for label, val in q["options"]]
-    buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data="menu:main")])
+    buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data="menu:back")])
     
     text = f"📋 <b>Калибровка — вопрос 1 из {len(CALIBRATION_QUESTIONS)}</b>
 
@@ -102,7 +102,7 @@ async def process_cal_answer(callback: CallbackQuery, state: FSMContext, user: U
     
     q = CALIBRATION_QUESTIONS[idx]
     buttons = [[InlineKeyboardButton(text=label, callback_data=f"cal:a:{q['key']}:{val}")] for label, val in q["options"]]
-    buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data="menu:main")])
+    buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data="menu:back")])
     
     await state.update_data(cal_idx=idx, cal_answers=answers)
     await callback.message.edit_text(
