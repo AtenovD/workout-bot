@@ -69,27 +69,37 @@ def duration_kb():
         [("90 мин", "cal:dur:90")],
     )
 
-async def build_equipment_kb(session: AsyncSession, selected_ids: list[int]) -> InlineKeyboardMarkup:
-    result = await session.execute(select(Equipment).order_by(Equipment.category, Equipment.id))
-    all_eq = result.scalars().all()
+CATEGORY_META_ONBOARDING = {
+    EquipmentCategory.none:       {"label_ru": "🤸 Без инвентаря", "desc_ru": "Упражнения с собственным весом"},
+    EquipmentCategory.portable:   {"label_ru": "🎽 Переносной инвентарь", "desc_ru": "Гантели, гири, резинки, скакалка…"},
+    EquipmentCategory.stationary: {"label_ru": "🏗 Стационарный инвентарь", "desc_ru": "Штанги, тренажёры, скамьи, турник…"},
+}
+
+
+async def build_category_kb() -> InlineKeyboardMarkup:
     rows = []
-    cat_labels = {
-        EquipmentCategory.none: "── 🤸 Без инвентаря ──",
-        EquipmentCategory.portable: "── 🎽 Переносной ──",
-        EquipmentCategory.stationary: "── 🏗 Тренажёры ──",
-    }
-    current_cat = None
-    for eq in all_eq:
-        if eq.category != current_cat:
-            current_cat = eq.category
-            rows.append([InlineKeyboardButton(text=cat_labels[eq.category], callback_data="cal:eq:noop")])
-        mark = "✅" if eq.id in selected_ids else "➕"
-        rows.append([InlineKeyboardButton(text=f"{eq.icon or ''} {mark} {eq.name_ru}", callback_data=f"cal:eq:{eq.id}")])
-    rows.append([InlineKeyboardButton(text="➡️ Готово", callback_data="cal:eq:done")])
+    for cat in (EquipmentCategory.none, EquipmentCategory.portable, EquipmentCategory.stationary):
+        meta = CATEGORY_META_ONBOARDING[cat]
+        rows.append([InlineKeyboardButton(text=meta["label_ru"], callback_data=f"eq_cat:{cat.value}")])
+    rows.append([InlineKeyboardButton(text="➡️ Готово", callback_data="eq_done")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-# ── /start ──────────────────────────────────────────────────────────────────
+async def build_equipment_items_kb(session: AsyncSession, selected_ids: list[int], category: str) -> InlineKeyboardMarkup:
+    result = await session.execute(
+        select(Equipment).where(Equipment.category == category).order_by(Equipment.id)
+    )
+    items = result.scalars().all()
+    rows = []
+    for eq in items:
+        mark = "✅" if eq.id in selected_ids else "+"
+        rows.append([InlineKeyboardButton(
+            text=f"{eq.icon or '•'} {mark} {eq.name_ru}",
+            callback_data=f"eq_tgl:{eq.id}:{category}",
+        )])
+    rows.append([InlineKeyboardButton(text="🔙 Назад к категориям", callback_data="eq_back_cat")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext, user: User, session: AsyncSession):
@@ -168,11 +178,11 @@ async def step_weight_current(message: Message, state: FSMContext):
     except Exception:
         await message.answer("Введи рост в см (100–250):"); return
     await state.update_data(height_cm=h)
-    await state.set_state(OnboardingStates.weight_current)
+    await state.set_state(OnboardingStates.current_weight)
     await message.answer("⚖️ <b>Шаг 4 / 11 — Текущий вес</b>\n\nВ кг (например <code>75.5</code>):", parse_mode="HTML")
 
 
-@router.message(OnboardingStates.weight_current)
+@router.message(OnboardingStates.current_weight)
 async def step_weight_target(message: Message, state: FSMContext):
     try:
         w = float(message.text.replace(",", ".").strip())
@@ -180,11 +190,11 @@ async def step_weight_target(message: Message, state: FSMContext):
     except Exception:
         await message.answer("Введи вес в кг (например 75.5):"); return
     await state.update_data(current_weight_kg=w)
-    await state.set_state(OnboardingStates.weight_target)
+    await state.set_state(OnboardingStates.target_weight)
     await message.answer("🎯 <b>Шаг 5 / 11 — Целевой вес</b>\n\nВ кг:", parse_mode="HTML")
 
 
-@router.message(OnboardingStates.weight_target)
+@router.message(OnboardingStates.target_weight)
 async def step_goal(message: Message, state: FSMContext):
     try:
         w = float(message.text.replace(",", ".").strip())
@@ -207,14 +217,14 @@ async def step_experience(callback: CallbackQuery, state: FSMContext):
 async def step_health_flags(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split(":")
     await state.update_data(experience_level=parts[2], experience_months=int(parts[3]), health_flags=[])
-    await state.set_state(OnboardingStates.health_flags)
+    await state.set_state(OnboardingStates.health)
     await callback.message.edit_text(
         "🏥 <b>Шаг 8 / 11 — Здоровье</b>\n\nОтметь всё что актуально:",
         reply_markup=health_kb([]), parse_mode="HTML"
     )
 
 
-@router.callback_query(OnboardingStates.health_flags, F.data.startswith("cal:health:"))
+@router.callback_query(OnboardingStates.health, F.data.startswith("cal:health:"))
 async def toggle_health(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     flag = callback.data.split(":")[2]
     if flag == "done":
@@ -222,7 +232,7 @@ async def toggle_health(callback: CallbackQuery, state: FSMContext, session: Asy
         await state.set_state(OnboardingStates.equipment)
         await callback.message.edit_text(
             "🎒 <b>Шаг 9 / 11 — Инвентарь</b>\n\nОтметь что у тебя есть:",
-            reply_markup=await build_equipment_kb(session, []),
+            reply_markup=await build_category_kb(session, []),
             parse_mode="HTML"
         )
         return
@@ -239,27 +249,50 @@ async def toggle_health(callback: CallbackQuery, state: FSMContext, session: Asy
     await callback.answer()
 
 
-@router.callback_query(OnboardingStates.equipment, F.data.startswith("cal:eq:"))
-async def toggle_equipment(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
-    code = callback.data.split(":")[2]
-    if code == "noop":
-        await callback.answer(); return
-    if code == "done":
-        await state.set_state(OnboardingStates.training_days)
-        await callback.message.edit_text(
-            "📅 <b>Шаг 10 / 11 — Частота</b>\n\nСколько тренировок в неделю?",
-            reply_markup=days_kb(), parse_mode="HTML"
-        )
-        return
-    data = await state.get_data()
-    eq_ids = data.get("equipment_ids", [])
-    eq_id = int(code)
-    if eq_id in eq_ids: eq_ids.remove(eq_id)
-    else: eq_ids.append(eq_id)
-    await state.update_data(equipment_ids=eq_ids)
-    await callback.message.edit_reply_markup(reply_markup=await build_equipment_kb(session, eq_ids))
-    await callback.answer()
 
+# ── Onboarding: step 1 (pick category) ──
+@router.callback_query(OnboardingStates.equipment, F.data.startswith("eq_cat:"))
+async def eq_pick_category_onboarding(call: CallbackQuery, state: FSMContext, session: AsyncSession):
+    category = call.data.split(":", 1)[1]
+    data = await state.get_data()
+    selected = list(data.get("equipment_ids", []))
+    meta = CATEGORY_META_ONBOARDING.get(EquipmentCategory(category), CATEGORY_META_ONBOARDING[EquipmentCategory.none])
+    await state.update_data(current_eq_category=category)
+    await call.message.edit_text(
+        f"{meta['label_ru']}\n{meta['desc_ru']}\n\n"
+        "<i>Нажми на предмет, чтобы добавить/убрать его.</i>",
+        reply_markup=await build_equipment_items_kb(session, selected, category),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@router.callback_query(OnboardingStates.equipment, F.data == "eq_back_cat")
+async def eq_back_to_categories_onboarding(call: CallbackQuery, state: FSMContext):
+    await state.update_data(current_eq_category=None)
+    await call.message.edit_text(
+        "🏋️ <b>Выбери доступный инвентарь</b>:",
+        reply_markup=await build_category_kb(),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@router.callback_query(OnboardingStates.equipment, F.data.startswith("eq_tgl:"))
+async def toggle_equipment_onboarding(call: CallbackQuery, state: FSMContext, session: AsyncSession):
+    _, eq_id_str, category = call.data.split(":", 2)
+    eq_id = int(eq_id_str)
+    data = await state.get_data()
+    selected = list(data.get("equipment_ids", []))
+    if eq_id in selected:
+        selected.remove(eq_id)
+    else:
+        selected.append(eq_id)
+    await state.update_data(equipment_ids=selected)
+    await call.message.edit_reply_markup(
+        reply_markup=await build_equipment_items_kb(session, selected, category)
+    )
+    await call.answer()
 
 @router.callback_query(F.data.startswith("cal:days:"))
 async def step_duration(callback: CallbackQuery, state: FSMContext):

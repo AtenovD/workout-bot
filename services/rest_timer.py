@@ -23,7 +23,7 @@ async def run_rest_timer(bot: Bot, chat_id: int, se_id: int, next_set: int, seco
         chat_id,
         f"⏱ Отдых <b>{seconds} сек</b>\n\nНажми когда будешь готов.",
         parse_mode="HTML",
-        reply_markup=_rest_kb(se_id),
+        reply_markup=_rest_kb(se_id, next_set),
     )
     remaining = seconds
     while remaining > 0:
@@ -40,7 +40,7 @@ async def run_rest_timer(bot: Bot, chat_id: int, se_id: int, next_set: int, seco
                 chat_id=chat_id,
                 message_id=msg.message_id,
                 parse_mode="HTML",
-                reply_markup=_rest_kb(se_id),
+                reply_markup=_rest_kb(se_id, next_set),
             )
         except Exception:
             pass

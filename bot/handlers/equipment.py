@@ -1,10 +1,13 @@
 """
-Equipment handler — lets users manage their available equipment after calibration.
-Uses the actual Equipment + UserEquipment DB tables.
+Equipment handler — two-step selection: category → specific equipment.
+Step 1: pick category (none / portable / stationary)
+Step 2: toggle individual equipment items within that category
 """
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -15,104 +18,169 @@ from models.user_equipment import UserEquipment
 
 router = Router()
 
+# ── FSM for two-step equipment selection ──
+class EquipmentStates(StatesGroup):
+    picking_category = State()
+    picking_items = State()
 
-async def _build_equipment_kb(session: AsyncSession, user_id: int) -> tuple["InlineKeyboardMarkup", list[int]]:
-    """Build keyboard from DB equipment catalog; return (keyboard, selected_ids)."""
-    eq_res = await session.execute(select(Equipment).order_by(Equipment.category, Equipment.id))
-    all_eq = eq_res.scalars().all()
 
-    ue_res = await session.execute(
-        select(UserEquipment.equipment_id).where(
-            UserEquipment.user_id == user_id, UserEquipment.has_it == True
-        )
+CATEGORY_META = {
+    EquipmentCategory.none:       {"label_ru": "🤸 Без инвентаря", "label_en": "No Equipment", "desc_ru": "Упражнения с собственным весом", "desc_en": "Bodyweight exercises"},
+    EquipmentCategory.portable:   {"label_ru": "🎽 Переносной инвентарь", "label_en": "Portable", "desc_ru": "Гантели, гири, резинки и т.д.", "desc_en": "Dumbbells, kettlebells, bands…"},
+    EquipmentCategory.stationary: {"label_ru": "🏗 Стационарный инвентарь", "label_en": "Stationary", "desc_ru": "Штанги, тренажёры, скамьи…", "desc_en": "Barbells, machines, benches…"},
+}
+
+
+async def _get_user_equipment_ids(session: AsyncSession, user_id: int) -> set[int]:
+    """Return set of equipment IDs the user already has."""
+    result = await session.execute(
+        select(UserEquipment.equipment_id).where(UserEquipment.user_id == user_id)
     )
-    selected_ids = set(ue_res.scalars().all())
+    return {row[0] for row in result.fetchall()}
 
-    cat_headers = {
-        EquipmentCategory.none:       "\U0001f3c3 \u0411\u0435\u0437 \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044f",
-        EquipmentCategory.portable:   "\U0001f3c5 \u041f\u0435\u0440\u0435\u043d\u043e\u0441\u043d\u043e\u0439",
-        EquipmentCategory.stationary: "\U0001f3d7 \u0422\u0440\u0435\u043d\u0430\u0436\u0451\u0440\u044b",
-    }
+
+def _build_category_kb():
+    """Step 1: show three category buttons + Done."""
+    kb = InlineKeyboardBuilder()
+    for cat in (EquipmentCategory.none, EquipmentCategory.portable, EquipmentCategory.stationary):
+        meta = CATEGORY_META[cat]
+        kb.button(text=f"{meta['label_ru']}", callback_data=f"eq_cat:{cat.value}")
+    kb.button(text="➡️ Готово", callback_data="eq_done")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+async def _build_category_items_kb(
+    session: AsyncSession,
+    user_id: int,
+    category: str,
+) -> "InlineKeyboardMarkup":
+    """Step 2: show equipment items of a given category with ✅ marks."""
+    eq_result = await session.execute(
+        select(Equipment)
+        .where(Equipment.category == category)
+        .order_by(Equipment.id)
+    )
+    items = eq_result.scalars().all()
+    selected_ids = await _get_user_equipment_ids(session, user_id)
 
     kb = InlineKeyboardBuilder()
-    current_cat = None
-    for eq in all_eq:
-        if eq.category != current_cat:
-            current_cat = eq.category
-            kb.button(
-                text=f"\u2500\u2500 {cat_headers.get(eq.category, '')} \u2500\u2500",
-                callback_data="equip:noop"
-            )
-        mark = "\u2705" if eq.id in selected_ids else "\u2795"
+    for eq in items:
+        checked = "✅ " if eq.id in selected_ids else ""
         kb.button(
-            text=f"{eq.icon or ''} {mark} {eq.name_ru}",
-            callback_data=f"equip:toggle:{eq.id}"
+            text=f"{eq.icon or '•'} {checked}{eq.name_ru}",
+            callback_data=f"eq_toggle:{eq.id}:{category}",
         )
-    kb.button(text="\U0001f4be \u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c", callback_data="equip:save")
+
+    kb.button(text="🔙 Назад к категориям", callback_data="eq_back_to_cat")
     kb.adjust(1)
-    return kb.as_markup(), list(selected_ids)
+    return kb.as_markup()
 
 
+# ── Entry point ──
 @router.message(Command("equipment"))
-@router.callback_query(F.data == "menu:equipment")
-async def equipment_menu(event, session: AsyncSession, user: User, **kwargs):
-    msg = event.message if isinstance(event, CallbackQuery) else event
-    kb, _ = await _build_equipment_kb(session, user.id)
-    text = (
-        "\U0001f3cb\ufe0f <b>\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0439 \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044c</b>\n\n"
-        "\u041e\u0442\u043c\u0435\u0442\u044c \u0447\u0442\u043e \u0435\u0441\u0442\u044c \u2014 \u0431\u043e\u0442 \u0431\u0443\u0434\u0435\u0442 \u043f\u043e\u0434\u0431\u0438\u0440\u0430\u0442\u044c \u0443\u043f\u0440\u0430\u0436\u043d\u0435\u043d\u0438\u044f \u0442\u043e\u043b\u044c\u043a\u043e \u0441 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u043c \u043e\u0431\u043e\u0440\u0443\u0434\u043e\u0432\u0430\u043d\u0438\u0435\u043c.\n"
-        "\u2795 = \u0430\u0434\u0434\u0430\u0442\u044c  \u2705 = \u0435\u0441\u0442\u044c (\u043d\u0430\u0436\u043c\u0438 \u0447\u0442\u043e\u0431\u044b \u0443\u0431\u0440\u0430\u0442\u044c)"
+async def cmd_equipment(message: Message, session: AsyncSession, state: FSMContext):
+    """Open equipment manager — step 1: pick category."""
+    user = await session.get(User, message.from_user.id)
+    if not user:
+        await message.answer("Сначала зарегистрируйся — /start")
+        return
+
+    await state.set_state(EquipmentStates.picking_category)
+    await message.answer(
+        "🏋️ <b>Выбери категорию инвентаря</b>:\n\n"
+        "Сначала выбери тип, затем отметь конкретное оборудование, которое у тебя есть.",
+        reply_markup=_build_category_kb(),
+        parse_mode="HTML",
     )
-    if isinstance(event, CallbackQuery):
-        await msg.edit_text(text, reply_markup=kb, parse_mode="HTML")
-        await event.answer()
-    else:
-        await msg.answer(text, reply_markup=kb, parse_mode="HTML")
 
 
-@router.callback_query(F.data == "equip:noop")
-async def equip_noop(cb: CallbackQuery):
-    await cb.answer()
+@router.callback_query(F.data == "eq_back_to_cat")
+async def back_to_categories(call: CallbackQuery, session: AsyncSession, state: FSMContext):
+    """Return to category selection."""
+    await state.set_state(EquipmentStates.picking_category)
+    await call.message.edit_text(
+        "🏋️ <b>Выбери категорию инвентаря</b>:",
+        reply_markup=_build_category_kb(),
+        parse_mode="HTML",
+    )
+    await call.answer()
 
 
-@router.callback_query(F.data.startswith("equip:toggle:"))
-async def toggle_equipment(cb: CallbackQuery, session: AsyncSession, user: User):
-    eq_id = int(cb.data.split("equip:toggle:")[1])
+# ── Step 1 → Step 2: category clicked ──
+@router.callback_query(F.data.startswith("eq_cat:"), EquipmentStates.picking_category)
+@router.callback_query(F.data.startswith("eq_cat:"))
+async def pick_category(call: CallbackQuery, session: AsyncSession, state: FSMContext):
+    """User picked a category — show items of that category."""
+    category = call.data.split(":", 1)[1]
+    meta = CATEGORY_META.get(EquipmentCategory(category), CATEGORY_META[EquipmentCategory.none])
 
-    ue_res = await session.execute(
-        select(UserEquipment).where(
-            UserEquipment.user_id == user.id, UserEquipment.equipment_id == eq_id
+    await state.set_state(EquipmentStates.picking_items)
+    await state.update_data(current_category=category)
+
+    kb = await _build_category_items_kb(session, call.from_user.id, category)
+
+    await call.message.edit_text(
+        f"{meta['label_ru']}\n{meta['desc_ru']}\n\n"
+        "<i>Нажми на предмет, чтобы добавить/убрать его из своего инвентаря.</i>",
+        reply_markup=kb,
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+# ── Step 2: toggle equipment ──
+@router.callback_query(F.data.startswith("eq_toggle:"), EquipmentStates.picking_items)
+@router.callback_query(F.data.startswith("eq_toggle:"))
+async def toggle_equipment(call: CallbackQuery, session: AsyncSession, state: FSMContext):
+    """Toggle a specific equipment item for the user."""
+    _, eq_id_str, category = call.data.split(":", 2)
+    eq_id = int(eq_id_str)
+
+    user_id = call.from_user.id
+    selected_ids = await _get_user_equipment_ids(session, user_id)
+
+    if eq_id in selected_ids:
+        # Remove
+        await session.execute(
+            select(UserEquipment).where(
+                UserEquipment.user_id == user_id,
+                UserEquipment.equipment_id == eq_id,
+            )
         )
-    )
-    ue = ue_res.scalar_one_or_none()
-
-    if ue:
-        ue.has_it = not ue.has_it
+        result = await session.execute(
+            select(UserEquipment).where(
+                UserEquipment.user_id == user_id,
+                UserEquipment.equipment_id == eq_id,
+            )
+        )
+        record = result.scalar()
+        if record:
+            await session.delete(record)
     else:
-        ue = UserEquipment(user_id=user.id, equipment_id=eq_id, has_it=True)
-        session.add(ue)
+        # Add
+        session.add(UserEquipment(user_id=user_id, equipment_id=eq_id))
 
     await session.commit()
 
-    kb, _ = await _build_equipment_kb(session, user.id)
-    await cb.message.edit_reply_markup(reply_markup=kb)
-    status = "\u2705 \u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u043e" if ue.has_it else "\u2716\ufe0f \u0423\u0431\u0440\u0430\u043d\u043e"
-    await cb.answer(status)
+    # Refresh keyboard
+    kb = await _build_category_items_kb(session, user_id, category)
+    await call.message.edit_reply_markup(reply_markup=kb)
+    await call.answer()
 
 
-@router.callback_query(F.data == "equip:save")
-async def save_equipment(cb: CallbackQuery, session: AsyncSession, user: User):
-    ue_res = await session.execute(
-        select(UserEquipment, Equipment)
-        .join(Equipment, UserEquipment.equipment_id == Equipment.id)
-        .where(UserEquipment.user_id == user.id, UserEquipment.has_it == True)
+# ── Done ──
+@router.callback_query(F.data == "eq_done")
+async def finish_equipment(call: CallbackQuery, session: AsyncSession, state: FSMContext):
+    """User finished selecting equipment."""
+    await state.clear()
+    user_id = call.from_user.id
+    selected = await _get_user_equipment_ids(session, user_id)
+    count = len(selected)
+
+    await call.message.edit_text(
+        f"✅ Готово! В твоём инвентаре <b>{count}</b> предметов.\n"
+        f"Изменить можно в любой момент — /equipment",
+        parse_mode="HTML",
     )
-    rows = ue_res.all()
-    lines = [f"\u2022 {eq.name_ru}" for _, eq in rows] if rows else ["\u2022 \u041d\u0438\u0447\u0435\u0433\u043e \u043d\u0435 \u0432\u044b\u0431\u0440\u0430\u043d\u043e"]
-
-    await cb.message.edit_text(
-        f"\u2705 <b>\u0418\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d</b>\n\n" + "\n".join(lines) +
-        "\n\n\u0422\u0440\u0435\u043d\u0438\u0440\u043e\u0432\u043a\u0438 \u0431\u0443\u0434\u0443\u0442 \u043f\u043e\u0434\u0431\u0438\u0440\u0430\u0442\u044c\u0441\u044f \u043f\u043e\u0434 \u0442\u0432\u043e\u0451 \u043e\u0431\u043e\u0440\u0443\u0434\u043e\u0432\u0430\u043d\u0438\u0435.",
-        parse_mode="HTML"
-    )
-    await cb.answer("\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u043e!")
+    await call.answer()

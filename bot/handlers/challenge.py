@@ -71,8 +71,6 @@ async def join_challenge(callback: CallbackQuery, user: User, session: AsyncSess
     challenge = UserChallenge(
         user_id=user.id,
         current_day=0,
-        workout_days=[],
-        completed=False,
     )
     session.add(challenge)
     await session.commit()
@@ -97,7 +95,7 @@ async def challenge_from_menu(callback: CallbackQuery, user: User, session: Asyn
     if not challenge:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔥 Присоединиться", callback_data="challenge:join")],
-            [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:main")],
+            [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:back")],
         ])
         await callback.message.edit_text(
             "🏆 <b>30-дневный челлендж</b>\n\n"
@@ -121,7 +119,7 @@ async def challenge_from_menu(callback: CallbackQuery, user: User, session: Asyn
         status = f"🔥 День {challenge.current_day}/{CHALLENGE_DAYS}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:main")],
+        [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:back")],
     ])
 
     await callback.message.edit_text(
