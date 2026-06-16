@@ -88,9 +88,7 @@ async def cmd_equipment(message: Message, session: AsyncSession, state: FSMConte
 
     await state.set_state(EquipmentStates.picking_category)
     await message.answer(
-        "🏋️ <b>Выбери категорию инвентаря</b>:
-
-"
+        "🏋️ <b>Выбери категорию инвентаря</b>:\n\n"
         "Сначала выбери тип, затем отметь конкретное оборудование, которое у тебя есть.",
         reply_markup=_build_category_kb(),
         parse_mode="HTML",
@@ -123,10 +121,7 @@ async def pick_category(call: CallbackQuery, session: AsyncSession, state: FSMCo
     kb = await _build_category_items_kb(session, call.from_user.id, category)
 
     await call.message.edit_text(
-        f"{meta['label_ru']}
-{meta['desc_ru']}
-
-"
+        f"{meta['label_ru']}\n{meta['desc_ru']}\n\n"
         "<i>Нажми на предмет, чтобы добавить/убрать его из своего инвентаря.</i>",
         reply_markup=kb,
         parse_mode="HTML",
@@ -184,8 +179,7 @@ async def finish_equipment(call: CallbackQuery, session: AsyncSession, state: FS
     count = len(selected)
 
     await call.message.edit_text(
-        f"✅ Готово! В твоём инвентаре <b>{count}</b> предметов.
-"
+        f"✅ Готово! В твоём инвентаре <b>{count}</b> предметов.\n"
         f"Изменить можно в любой момент — /equipment",
         parse_mode="HTML",
     )

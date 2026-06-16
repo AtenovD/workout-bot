@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Integer, Numeric, String, Enum, DateTime, Date, ForeignKey, JSON, func
+from sqlalchemy import Integer, BigInteger, Numeric, String, Enum, DateTime, Date, ForeignKey, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 from core.db import Base
@@ -30,7 +30,7 @@ class SplitType(str, enum.Enum):
 class Profile(Base):
     __tablename__ = "profiles"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), unique=True)
     gender: Mapped[Gender | None] = mapped_column(Enum(Gender))
     birth_date: Mapped[Date | None] = mapped_column(Date)

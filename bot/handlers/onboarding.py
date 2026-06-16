@@ -178,11 +178,11 @@ async def step_weight_current(message: Message, state: FSMContext):
     except Exception:
         await message.answer("Введи рост в см (100–250):"); return
     await state.update_data(height_cm=h)
-    await state.set_state(OnboardingStates.weight_current)
+    await state.set_state(OnboardingStates.current_weight)
     await message.answer("⚖️ <b>Шаг 4 / 11 — Текущий вес</b>\n\nВ кг (например <code>75.5</code>):", parse_mode="HTML")
 
 
-@router.message(OnboardingStates.weight_current)
+@router.message(OnboardingStates.current_weight)
 async def step_weight_target(message: Message, state: FSMContext):
     try:
         w = float(message.text.replace(",", ".").strip())
@@ -190,11 +190,11 @@ async def step_weight_target(message: Message, state: FSMContext):
     except Exception:
         await message.answer("Введи вес в кг (например 75.5):"); return
     await state.update_data(current_weight_kg=w)
-    await state.set_state(OnboardingStates.weight_target)
+    await state.set_state(OnboardingStates.target_weight)
     await message.answer("🎯 <b>Шаг 5 / 11 — Целевой вес</b>\n\nВ кг:", parse_mode="HTML")
 
 
-@router.message(OnboardingStates.weight_target)
+@router.message(OnboardingStates.target_weight)
 async def step_goal(message: Message, state: FSMContext):
     try:
         w = float(message.text.replace(",", ".").strip())
@@ -217,14 +217,14 @@ async def step_experience(callback: CallbackQuery, state: FSMContext):
 async def step_health_flags(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split(":")
     await state.update_data(experience_level=parts[2], experience_months=int(parts[3]), health_flags=[])
-    await state.set_state(OnboardingStates.health_flags)
+    await state.set_state(OnboardingStates.health)
     await callback.message.edit_text(
         "🏥 <b>Шаг 8 / 11 — Здоровье</b>\n\nОтметь всё что актуально:",
         reply_markup=health_kb([]), parse_mode="HTML"
     )
 
 
-@router.callback_query(OnboardingStates.health_flags, F.data.startswith("cal:health:"))
+@router.callback_query(OnboardingStates.health, F.data.startswith("cal:health:"))
 async def toggle_health(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     flag = callback.data.split(":")[2]
     if flag == "done":

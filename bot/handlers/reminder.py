@@ -55,9 +55,7 @@ async def show_reminders(msg_or_cb, state: FSMContext, session: AsyncSession = N
     kb.adjust(1)
 
     await target.answer(
-        "🔔 <b>Напоминания</b>
-
-"
+        "🔔 <b>Напоминания</b>\n\n"
         "Настрой уведомления:",
         reply_markup=kb.as_markup(), parse_mode="HTML"
     )

@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, String, Enum, DateTime, func, Boolean
+from sqlalchemy import Integer, BigInteger, String, Enum, DateTime, func, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 from core.db import Base
@@ -10,7 +10,7 @@ class UserStatus(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True, nullable=False)
     username: Mapped[str | None] = mapped_column(String(64))
     first_name: Mapped[str | None] = mapped_column(String(128))

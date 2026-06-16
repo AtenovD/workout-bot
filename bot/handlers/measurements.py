@@ -56,21 +56,16 @@ async def measurements_menu(msg_or_cb, state: FSMContext, session: AsyncSession 
     kb.adjust(1)
 
     if latest:
-        lines = ["📏 <b>Последние замеры</b>
-"]
+        lines = ["📏 <b>Последние замеры</b>"]
         date_str = latest.recorded_at.strftime("%d.%m.%Y") if latest.recorded_at else "—"
-        lines.append(f"📅 <i>{date_str}</i>
-")
+        lines.append(f"📅 <i>{date_str}</i>")
         for field in MEASURE_ORDER:
             val = getattr(latest, field, None)
             if val is not None:
                 lines.append(f"{MEASURE_LABELS[field]}: <b>{val}</b>")
-        text = "
-".join(lines)
+        text = "\n".join(lines)
     else:
-        text = "📏 <b>Замеры тела</b>
-
-Пока нет записей. Нажми «Внести замеры»."
+        text = "📏 <b>Замеры тела</b>\n\nПока нет записей. Нажми «Внести замеры»."
 
     await target.answer(text, reply_markup=kb.as_markup(), parse_mode="HTML")
 
@@ -82,11 +77,8 @@ async def start_new_measurement(cb: CallbackQuery, state: FSMContext):
 
     field = MEASURE_ORDER[0]
     await cb.message.edit_text(
-        f"📏 <b>Новый замер</b>
-
-"
-        f"{MEASURE_LABELS[field]}:
-"
+        f"📏 <b>Новый замер</b>\n\n"
+        f"{MEASURE_LABELS[field]}:\n"
         f"<i>Введи число или напиши «пропустить»</i>",
         parse_mode="HTML"
     )
@@ -121,8 +113,7 @@ async def process_measure_step(msg: Message, state: FSMContext, session: AsyncSe
         await state.update_data(steps=steps, current_idx=next_idx)
         next_field = MEASURE_ORDER[next_idx]
         await msg.answer(
-            f"{MEASURE_LABELS[next_field]}:
-<i>Введи число или «пропустить»</i>",
+            f"{MEASURE_LABELS[next_field]}:\n<i>Введи число или «пропустить»</i>",
             parse_mode="HTML"
         )
     else:
@@ -139,16 +130,13 @@ async def save_measurement(msg: Message, state: FSMContext, session: AsyncSessio
     await state.clear()
 
     # Build confirmation message
-    lines = ["✅ <b>Замеры сохранены!</b>
-"]
+    lines = ["✅ <b>Замеры сохранены!</b>"]
     for field in MEASURE_ORDER:
         if field in steps:
             lines.append(f"{MEASURE_LABELS[field]}: <b>{steps[field]}</b>")
-    lines.append(f"
-📅 {datetime.utcnow().strftime('%d.%m.%Y')}")
+    lines.append(f"\n📅 {datetime.utcnow().strftime('%d.%m.%Y')}")
 
-    await msg.answer("
-".join(lines), reply_markup=main_menu_keyboard(), parse_mode="HTML")
+    await msg.answer("\n".join(lines), reply_markup=main_menu_keyboard(), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "meas:history")
@@ -172,8 +160,7 @@ async def measurement_history(cb: CallbackQuery, session: AsyncSession = None):
         return
     await cb.answer()
 
-    lines = ["📊 <b>История замеров</b>
-"]
+    lines = ["📊 <b>История замеров</b>"]
     for r in records:
         date = r.recorded_at.strftime("%d.%m") if r.recorded_at else "—"
         w = f"{r.weight_kg}кг" if r.weight_kg else "—"
@@ -181,5 +168,4 @@ async def measurement_history(cb: CallbackQuery, session: AsyncSession = None):
 
     kb = InlineKeyboardBuilder()
     kb.button(text="◀️ Назад", callback_data="menu:measurements")
-    await cb.message.edit_text("
-".join(lines), reply_markup=kb.as_markup(), parse_mode="HTML")
+    await cb.message.edit_text("\n".join(lines), reply_markup=kb.as_markup(), parse_mode="HTML")

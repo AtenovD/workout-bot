@@ -2,7 +2,10 @@ from aiogram.fsm.state import State, StatesGroup
 
 
 class OnboardingStates(StatesGroup):
+    welcome = State()
+    language = State()
     gender = State()
+    age = State()
     birth_date = State()
     height = State()
     current_weight = State()
@@ -13,8 +16,8 @@ class OnboardingStates(StatesGroup):
     split_type = State()
     duration = State()
     equipment = State()
-    language = State()
     health = State()
+    equipment_items = State()
     schedule_mode = State()
     schedule_days = State()
     reminder_time = State()
