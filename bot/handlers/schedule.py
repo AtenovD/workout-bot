@@ -113,7 +113,7 @@ async def ask_reminder_time(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text("Введи время напоминания в формате ЧЧ:ММ\n_Например: 08:00_", parse_mode="Markdown")
 
 
-@router.message(ScheduleStates.entering_time)
+@router.message(ScheduleStates.entering_time, ~Command())
 async def save_reminder_time(message: Message, state: FSMContext, user: User, session: AsyncSession):
     try:
         h, m = message.text.split(":")
