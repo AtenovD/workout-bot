@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from aiogram import Router, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -158,7 +158,7 @@ async def step_age(callback: CallbackQuery, state: FSMContext):
     )
 
 
-@router.message(OnboardingStates.age)
+@router.message(OnboardingStates.age, ~Command())
 async def step_height(message: Message, state: FSMContext):
     try:
         age = int(message.text.strip())
@@ -170,7 +170,7 @@ async def step_height(message: Message, state: FSMContext):
     await message.answer("📏 <b>Шаг 3 / 11 — Рост</b>\n\nВ сантиметрах (например <code>178</code>):", parse_mode="HTML")
 
 
-@router.message(OnboardingStates.height)
+@router.message(OnboardingStates.height, ~Command())
 async def step_weight_current(message: Message, state: FSMContext):
     try:
         h = int(message.text.strip())
@@ -182,7 +182,7 @@ async def step_weight_current(message: Message, state: FSMContext):
     await message.answer("⚖️ <b>Шаг 4 / 11 — Текущий вес</b>\n\nВ кг (например <code>75.5</code>):", parse_mode="HTML")
 
 
-@router.message(OnboardingStates.current_weight)
+@router.message(OnboardingStates.current_weight, ~Command())
 async def step_weight_target(message: Message, state: FSMContext):
     try:
         w = float(message.text.replace(",", ".").strip())
@@ -194,7 +194,7 @@ async def step_weight_target(message: Message, state: FSMContext):
     await message.answer("🎯 <b>Шаг 5 / 11 — Целевой вес</b>\n\nВ кг:", parse_mode="HTML")
 
 
-@router.message(OnboardingStates.target_weight)
+@router.message(OnboardingStates.target_weight, ~Command())
 async def step_goal(message: Message, state: FSMContext):
     try:
         w = float(message.text.replace(",", ".").strip())
