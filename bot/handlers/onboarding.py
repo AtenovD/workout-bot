@@ -232,7 +232,7 @@ async def toggle_health(callback: CallbackQuery, state: FSMContext, session: Asy
         await state.set_state(OnboardingStates.equipment)
         await callback.message.edit_text(
             "🎒 <b>Шаг 9 / 11 — Инвентарь</b>\n\nОтметь что у тебя есть:",
-            reply_markup=await build_category_kb(session, []),
+            reply_markup=await build_category_kb(),
             parse_mode="HTML"
         )
         return
