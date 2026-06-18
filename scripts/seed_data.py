@@ -101,13 +101,13 @@ EQUIPMENT_ALIASES = {
     "Bands": "resistance_band",
     "Kettlebells": "kettlebell",
     "Cable": "cable_machine",
-    "Machine": "bodyweight",
+    "Machine": "cable_machine",
     "Other": "bodyweight",
     "barbell": "barbell_standard",
     "dumbbell": "dumbbell",
     "kettlebell": "kettlebell",
     "cable": "cable_machine",
-    "machine": "bodyweight",
+    "machine": "cable_machine",
 }
 
 MUSCLE_GROUP_DATA = [
