@@ -71,7 +71,7 @@ async def ask_new_weight(callback: CallbackQuery, state: FSMContext):
     )
 
 
-@router.message(ProfileStates.entering_weight, ~Command())
+@router.message(ProfileStates.entering_weight, F.text)
 async def save_new_weight(message: Message, state: FSMContext, user: User, session: AsyncSession):
     try:
         weight = float(message.text.replace(",", "."))

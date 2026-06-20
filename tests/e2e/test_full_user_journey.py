@@ -167,7 +167,7 @@ class TestEdgeCases:
         uid = 999999
         key = StorageKey(bot_id=bot.id, chat_id=uid, user_id=uid)
         ctx = FSMContext(storage=dispatcher.storage, key=key)
-        await ctx.set_state(OnboardingStates.equipment_items)
+        await ctx.set_state(OnboardingStates.equipment)
         await _cb_update(dispatcher, bot, session, _cb("eq_back_cat", uid), 42)
         state = await dispatcher.storage.get_state(key)
         assert state is not None
