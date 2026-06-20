@@ -40,6 +40,7 @@ def experience_kb():
         [("📅 До 6 месяцев", "cal:exp:beginner:4")],
         [("📆 6–24 месяца", "cal:exp:intermediate:12")],
         [("🏆 Больше 2 лет", "cal:exp:advanced:30")],
+        [("🔄 Был опыт, сейчас возвращаюсь", "cal:exp:intermediate:0")],
     )
 
 def health_kb(selected: list[str]):
@@ -289,12 +290,31 @@ async def toggle_equipment_onboarding(call: CallbackQuery, state: FSMContext, se
     else:
         selected.append(eq_id)
     await state.update_data(equipment_ids=selected)
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Equipment toggle: user={call.from_user.id}, eq_id={eq_id}, total_selected={len(selected)}")
     await call.message.edit_reply_markup(
         reply_markup=await build_equipment_items_kb(session, selected, category)
     )
     await call.answer()
 
-@router.callback_query(F.data.startswith("cal:days:"))
+
+@router.callback_query(OnboardingStates.equipment, F.data == "eq_done")
+async def finish_equipment_onboarding(call: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    selected_count = len(data.get("equipment_ids", []))
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Equipment done: user={call.from_user.id}, selected={selected_count} items")
+    await state.set_state(OnboardingStates.training_days)
+    await call.message.edit_text(
+        "📅 <b>Шаг 10 / 11 — Дни в неделю</b>\n\nСколько дней в неделю хочешь тренироваться?",
+        reply_markup=days_kb(), parse_mode="HTML"
+    )
+    await call.answer()
+
+
+@router.callback_query(OnboardingStates.training_days, F.data.startswith("cal:days:"))
 async def step_duration(callback: CallbackQuery, state: FSMContext):
     await state.update_data(days_per_week=int(callback.data.split(":")[2]))
     await state.set_state(OnboardingStates.duration)
