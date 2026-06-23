@@ -28,6 +28,7 @@ async def settings_menu(msg_or_cb, user: User, **kwargs):
     text = "⚙️ <b>Настройки</b>\n\nВыберите действие:"
     if isinstance(msg_or_cb, CallbackQuery):
         await target.edit_text(text, reply_markup=kb.as_markup(), parse_mode="HTML")
+        await msg_or_cb.answer()
     else:
         await target.answer(text, reply_markup=kb.as_markup(), parse_mode="HTML")
 
@@ -39,6 +40,7 @@ async def change_language(cb: CallbackQuery):
         InlineKeyboardButton(text="🇬🇧 English", callback_data="lang:en"),
     ], [InlineKeyboardButton(text="◀️", callback_data="menu:settings")]])
     await cb.message.edit_text("🌍 Choose language / Выберите язык:", reply_markup=kb)
+    await cb.answer()
 
 
 @router.callback_query(F.data == "settings:export")
