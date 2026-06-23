@@ -80,6 +80,7 @@ async def show_progress(event, user: User, session: AsyncSession, **kwargs):
 
     if isinstance(event, CallbackQuery):
         await msg.edit_text(text, reply_markup=progress_menu_kb(), parse_mode="HTML")
+        await event.answer()
     else:
         await msg.answer(text, reply_markup=progress_menu_kb(), parse_mode="HTML")
 
