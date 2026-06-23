@@ -20,6 +20,7 @@ from services.pr_detection import detect_prs
 from services.plateau_detection import check_and_apply_plateau
 from services.deload_on_return import apply_return_deload
 from services.rest_timer import run_rest_timer
+from services.workout_summary import build_workout_summary, format_summary_message
 import asyncio
 
 router = Router()
@@ -437,10 +438,10 @@ async def finish_workout(callback: CallbackQuery, state: FSMContext, user: User,
     ws.calories_burned = calculate_calories_burned(DEFAULT_MET["compound"], 75, ws.duration_min)
     stats_res = await session.execute(select(UserStats).where(UserStats.user_id == user.id))
     stats = stats_res.scalar_one()
+    old_level = stats.level
     xp_r = calculate_xp(total_volume_kg=total_vol, difficulty_modifier=ws.difficulty_modifier.value,
                          streak=stats.current_streak, pr_count=0, was_skipped_before=False)
     ws.xp_earned = xp_r.xp_earned
-    old_level = stats.level
     stats.total_xp += xp_r.xp_earned
     stats.total_workouts += 1
     stats.total_volume_kg = float(stats.total_volume_kg or 0) + total_vol
@@ -465,20 +466,15 @@ async def finish_workout(callback: CallbackQuery, state: FSMContext, user: User,
             challenge.completed = True
             challenge.completed_at = datetime.now()
         await session.commit()
-    
-        lvl_text = f"\n🎉 <b>Уровень {stats.level} — {get_title(stats.level)}!</b>" if stats.level > old_level else ""
-    summary_text = (
-        f"🏁 <b>Тренировка завершена!</b>{lvl_text}\n\n"
-        f"⏱ {ws.duration_min} мин · 🏋️ {total_vol:.0f} кг · 🔥 ~{ws.calories_burned} ккал\n"
-        f"⭐ +{xp_r.xp_earned} XP · 📊 Ур. {stats.level} · 🔥 Стрик {stats.current_streak} дн."
+
+    # Build rich summary with per-exercise comparison
+    summary = await build_workout_summary(
+        session=session, user_id=user.id, workout_id=session_id,
+        xp_earned=xp_r.xp_earned, old_level=old_level,
     )
+    summary_text = format_summary_message(summary)
 
-    # PR detection
-    pr_messages = await detect_prs(session, user.id, ws.id)
-    if pr_messages:
-        summary_text += "\n\n" + "\n".join(pr_messages)
-
-    # Plateau + deload check for next session
+    # Plateau + deload notice for next session
     plateau_notices = await check_and_apply_plateau(session, user.id)
     if plateau_notices:
         summary_text += "\n\n" + "\n".join(plateau_notices)
