@@ -13,5 +13,6 @@ async def main_menu(event, **kwargs):
     text = "🏠 <b>Главное меню</b>\n\nВыбери действие:"
     if isinstance(event, CallbackQuery):
         await event.message.edit_text(text, reply_markup=main_menu_keyboard(), parse_mode="HTML")
+        await event.answer()
     else:
         await event.answer(text, reply_markup=main_menu_keyboard(), parse_mode="HTML")
