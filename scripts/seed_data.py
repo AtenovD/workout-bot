@@ -252,6 +252,21 @@ async def main():
     #     await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSessionLocal() as session:
+        # Cleanup: remove legacy equipment records with bad names
+        from sqlalchemy import delete
+        KNOWN_CODES = [e["code"] for e in EQUIPMENT_DATA]
+        await session.execute(
+            delete(Equipment).where(Equipment.code.not_in(KNOWN_CODES))
+        )
+        # Fix any stale name_ru that slipped through (e.g. "Тренажёр", "Блочный тренажёр")
+        BAD_NAMES = ["Тренажёр", "Блочный тренажёр", "Тренажор"]
+        for bad in BAD_NAMES:
+            res = await session.execute(select(Equipment).where(Equipment.name_ru == bad))
+            old_eq = res.scalars().all()
+            for eq in old_eq:
+                await session.delete(eq)
+        await session.commit()
+
         print("Seeding equipment...")
         eq_data = [{k: v for k, v in e.items() if k != "icon"} for e in EQUIPMENT_DATA]
         for item in EQUIPMENT_DATA:
