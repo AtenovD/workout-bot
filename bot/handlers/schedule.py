@@ -63,6 +63,7 @@ async def show_schedule(event, user: User, session: AsyncSession, **kwargs):
 
     if isinstance(event, CallbackQuery):
         await msg.edit_text(text, reply_markup=schedule_menu_kb(sched), parse_mode="HTML")
+        await event.answer()
     else:
         await msg.answer(text, reply_markup=schedule_menu_kb(sched), parse_mode="HTML")
 
@@ -111,6 +112,7 @@ async def toggle_reminder(callback: CallbackQuery, user: User, session: AsyncSes
 async def ask_reminder_time(callback: CallbackQuery, state: FSMContext):
     await state.set_state(ScheduleStates.entering_time)
     await callback.message.edit_text("Введи время напоминания в формате ЧЧ:ММ\n_Например: 08:00_", parse_mode="Markdown")
+    await callback.answer()
 
 
 @router.message(ScheduleStates.entering_time, F.text)
