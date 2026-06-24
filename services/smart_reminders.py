@@ -81,7 +81,7 @@ async def _had_pr_last_session(session: AsyncSession, user_id: int) -> bool:
     from models.workout import WorkoutSession, SessionStatus
     from models.personal_record import PersonalRecord
     last_res = await session.execute(
-        select(WorkoutSession.id)
+        select(WorkoutSession.id, WorkoutSession.completed_at)
         .where(
             WorkoutSession.user_id == user_id,
             WorkoutSession.status == SessionStatus.completed,
@@ -89,13 +89,13 @@ async def _had_pr_last_session(session: AsyncSession, user_id: int) -> bool:
         .order_by(WorkoutSession.completed_at.desc())
         .limit(1)
     )
-    last_id = last_res.scalar_one_or_none()
-    if not last_id:
+    last_row = last_res.one_or_none()
+    if not last_row or not last_row.completed_at:
         return False
     pr_res = await session.execute(
         select(func.count()).where(
             PersonalRecord.user_id == user_id,
-            PersonalRecord.set_at_session_id == last_id,
+            PersonalRecord.achieved_at >= last_row.completed_at,
         )
     )
     return (pr_res.scalar() or 0) > 0

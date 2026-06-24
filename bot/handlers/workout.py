@@ -451,6 +451,9 @@ async def finish_workout(callback: CallbackQuery, state: FSMContext, user: User,
     if stats.current_streak > stats.longest_streak:
         stats.longest_streak = stats.current_streak
     await session.commit()
+
+    prs = await detect_prs(session, user.id, session_id)
+
     # Increment 30-day challenge
     challenge = await session.execute(
         select(UserChallenge).where(UserChallenge.user_id == user.id)
@@ -472,6 +475,7 @@ async def finish_workout(callback: CallbackQuery, state: FSMContext, user: User,
         session=session, user_id=user.id, workout_id=session_id,
         xp_earned=xp_r.xp_earned, old_level=old_level,
     )
+    summary.prs.extend(prs)
     summary_text = format_summary_message(summary)
 
     # Plateau + deload notice for next session

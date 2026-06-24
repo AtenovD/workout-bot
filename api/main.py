@@ -6,7 +6,7 @@ app = FastAPI(title="Workout Bot API", version="1.0.0")
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "env": settings.app_env}
+    return {"status": "ok", "env": settings.APP_ENV}
 
 
 @app.get("/")

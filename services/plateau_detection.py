@@ -20,7 +20,7 @@ async def check_and_apply_plateau(session: AsyncSession, user_id: int) -> list[s
     res = await session.execute(
         select(WorkoutSession)
         .where(WorkoutSession.user_id == user_id, WorkoutSession.status == SessionStatus.completed)
-        .order_by(desc(WorkoutSession.finished_at))
+        .order_by(desc(WorkoutSession.completed_at))
         .limit(N_SESSIONS + 1)
     )
     recent = res.scalars().all()

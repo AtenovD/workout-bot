@@ -9,6 +9,7 @@ router = Router()
 
 @router.message(Command("menu"))
 @router.callback_query(F.data == "menu:back")
+@router.callback_query(F.data == "menu:main")
 async def main_menu(event, **kwargs):
     text = "🏠 <b>Главное меню</b>\n\nВыбери действие:"
     if isinstance(event, CallbackQuery):

@@ -1,9 +1,9 @@
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton, BufferedInputFile
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete, select
-import json, io
+import json
 
 from models.user import User
 from models.workout import WorkoutSession, SessionStatus
@@ -59,13 +59,22 @@ async def export_data(cb: CallbackQuery, user: User):
     data = {
         "sessions": [{"id": s.id, "status": s.status.value if s.status else None,
                       "created_at": str(s.created_at)} for s in sessions],
-        "personal_records": [{"exercise_code": pr.exercise_code, "weight_kg": pr.weight_kg,
-                               "reps": pr.reps} for pr in prs],
+        "personal_records": [
+            {
+                "exercise_id": pr.exercise_id,
+                "record_type": pr.record_type,
+                "value": float(pr.value),
+                "achieved_at": str(pr.achieved_at),
+            }
+            for pr in prs
+        ],
         "measurements": [{"date": str(m.date), "weight_kg": m.weight_kg} for m in measurements],
     }
-    buf = io.BytesIO(json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8"))
-    buf.name = "my_workout_data.json"
-    await cb.message.answer_document(buf, caption="📤 Ваши данные")
+    payload = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+    await cb.message.answer_document(
+        BufferedInputFile(payload, filename="my_workout_data.json"),
+        caption="📤 Ваши данные",
+    )
     await cb.answer()
 
 

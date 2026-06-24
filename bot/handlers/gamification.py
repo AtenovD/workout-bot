@@ -74,7 +74,7 @@ async def show_stats(event, user: User, session: AsyncSession):
     total_wk = total_res.scalar() or 0
     
     text = (
-        f"🏆 <b>{user.full_name or user.username or 'Атлет'}</b>\n\n"
+        f"🏆 <b>{user.first_name or user.username or 'Атлет'}</b>\n\n"
         f"🟣 Уровень: <b>{level}</b>\n"
         f"⭐️ XP: <b>{xp}</b> / {xp_next}\n"
         f"{bar} {progress_pct}%\n\n"
@@ -144,7 +144,7 @@ async def show_records(callback: CallbackQuery, user: User, session: AsyncSessio
             Exercise, PersonalRecord.exercise_id == Exercise.id
         ).where(
             PersonalRecord.user_id == user.id
-        ).order_by(PersonalRecord.weight_kg.desc()).limit(10)
+        ).order_by(PersonalRecord.value.desc()).limit(10)
     )
     records = pr_res.all()
     
@@ -153,7 +153,7 @@ async def show_records(callback: CallbackQuery, user: User, session: AsyncSessio
     else:
         text = "🏋️ <b>Твои рекорды</b>\n\n"
         for pr, ex_name in records:
-            text += f"🏆 <b>{ex_name}</b>: {pr.weight_kg:.1f} кг × {pr.reps}\n"
+            text += f"🏆 <b>{ex_name}</b>: {float(pr.value):.1f} ({pr.record_type})\n"
     
     await callback.message.edit_text(
         text,
@@ -181,8 +181,8 @@ async def show_history(callback: CallbackQuery, user: User, session: AsyncSessio
         text = "📊 <b>Последние тренировки</b>\n\n"
         for wk in workouts:
             date_str = wk.completed_at.strftime("%d.%m.%Y") if wk.completed_at else "?"
-            modifier = wk.modifier or "normal"
-            mod_icons = {"easy": "☀️", "normal": "💪", "hard": "🔥"}
+            modifier = wk.difficulty_modifier.value if wk.difficulty_modifier else "normal"
+            mod_icons = {"light": "☀️", "normal": "💪", "hard": "🔥"}
             text += f"{mod_icons.get(modifier, '')} {date_str} — {modifier}\n"
     
     await callback.message.edit_text(

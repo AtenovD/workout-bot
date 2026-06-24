@@ -2,9 +2,6 @@
 Progression service — calculates next workout weight based on past performance.
 Uses a simple linear periodization model with RPE adjustments.
 """
-from decimal import Decimal
-
-
 # Weight step per exercise type
 WEIGHT_STEP = {
     "compound": 2.5,
@@ -51,12 +48,22 @@ def calculate_next_weight(
         if last_rpe <= 6:
             next_weight = last_weight_kg * 0.9  # deload
         elif last_rpe >= 9:
-            next_weight = last_weight_kg  # too hard, no progress
+            next_weight = last_weight_kg * 0.9  # too hard, deload
 
     # Round to nearest 0.5
     next_weight = round(next_weight * 2) / 2
 
     return max(0.0, next_weight)
+
+
+def detect_plateau(weights: list[float], rpes: list[int | None] | None = None) -> bool:
+    """Return True when recent weights are flat and effort is not trending down."""
+    if len(weights) < 3:
+        return False
+    if len(set(weights[-3:])) != 1:
+        return False
+    recent_rpes = [r for r in (rpes or [])[-3:] if r is not None]
+    return not recent_rpes or min(recent_rpes) >= 7
 
 
 def estimate_1rm(weight_kg: float, reps: int) -> float:

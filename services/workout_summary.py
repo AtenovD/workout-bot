@@ -11,7 +11,6 @@ from typing import Optional
 
 from models.workout import WorkoutSession, SessionExercise, ExerciseSet, SessionStatus
 from models.gamification import UserStats
-from models.personal_record import PersonalRecord
 from models.exercise import Exercise
 from services.gamification import get_level_from_xp, get_title
 
@@ -68,7 +67,7 @@ async def build_workout_summary(
         sets_res = await session.execute(
             select(ExerciseSet).where(
                 ExerciseSet.session_exercise_id == se.id,
-                ExerciseSet.is_done == True,
+                ExerciseSet.is_warmup == False,
             )
         )
         sets = sets_res.scalars().all()
@@ -89,7 +88,7 @@ async def build_workout_summary(
                 WorkoutSession.id != workout_id,
                 WorkoutSession.status == SessionStatus.completed,
                 SessionExercise.exercise_id == ex.id,
-                ExerciseSet.is_done == True,
+                ExerciseSet.is_warmup == False,
             )
             .order_by(desc(WorkoutSession.completed_at))
             .limit(20)
@@ -133,14 +132,6 @@ async def build_workout_summary(
     )
     prev_vol_row = prev_session_res.scalar_one_or_none()
 
-    # PRs set this session
-    pr_res = await session.execute(
-        select(PersonalRecord, Exercise)
-        .join(Exercise, PersonalRecord.exercise_id == Exercise.id)
-        .where(PersonalRecord.user_id == user_id, PersonalRecord.set_at_session_id == workout_id)
-    )
-    prs = [f"🏆 <b>PR:</b> {ex.name_ru} — {pr.max_weight:.1f} кг" for pr, ex in pr_res.all()]
-
     return WorkoutSummary(
         duration_min=ws.duration_min or 0,
         total_volume=float(ws.total_volume_kg or 0),
@@ -150,7 +141,7 @@ async def build_workout_summary(
         level_up=stats.level > old_level,
         streak=stats.current_streak,
         exercises=exercises,
-        prs=prs,
+        prs=[],
         weekly_workouts=wc or 0,
         weekly_volume=float(wv or 0),
         prev_session_volume=float(prev_vol_row) if prev_vol_row else None,

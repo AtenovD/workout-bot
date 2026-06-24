@@ -34,7 +34,7 @@ async def show_profile(event, user: User, session: AsyncSession, **kwargs):
 
     if not profile or not profile.calibrated_at:
         text = "Профиль не заполнен. Пройди калибровку: /start"
-        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🚀 Начать калибровку", callback_data="menu:calibrate")]])
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🚀 Начать калибровку", callback_data="cal:start")]])
     else:
         goal_names = {"mass_gain": "Набор массы", "weight_loss": "Похудение", "maintenance": "Поддержание", "cardio": "Кардио / выносливость"}
         exp_names = {"beginner": "Новичок", "intermediate": "Средний", "advanced": "Продвинутый"}

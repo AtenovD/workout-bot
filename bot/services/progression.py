@@ -12,14 +12,14 @@ async def calculate_starting_weight(session: AsyncSession, user_id: int, exercis
         select(PersonalRecord).where(
             PersonalRecord.user_id == user_id,
             PersonalRecord.exercise_id == exercise_id
-        ).order_by(desc(PersonalRecord.weight_kg)).limit(1)
+        ).order_by(desc(PersonalRecord.value)).limit(1)
     )
     pr = pr_res.scalar()
     
     if not pr:
         return 0.0
     
-    base_weight = pr.weight_kg
+    base_weight = float(pr.value)
     
     # Apply modifier
     multipliers = {"easy": 0.70, "normal": 0.80, "hard": 0.85}
