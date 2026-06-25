@@ -9,7 +9,7 @@ matplotlib.use("Agg")  # non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 
 from models.workout import WorkoutSession, ExerciseSet, SessionExercise, SessionStatus
 from models.user import User
@@ -20,7 +20,7 @@ async def generate_volume_chart(session: AsyncSession, user: User, days: int = 3
     since = date.today() - timedelta(days=days)
 
     res = await session.execute(
-        select(WorkoutSession.completed_at, WorkoutSession.total_volume_kg)
+        select(WorkoutSession.id, WorkoutSession.completed_at, WorkoutSession.total_volume_kg)
         .where(
             WorkoutSession.user_id == user.id,
             WorkoutSession.status == SessionStatus.completed,
@@ -33,8 +33,19 @@ async def generate_volume_chart(session: AsyncSession, user: User, days: int = 3
     if not rows:
         return _empty_chart("Нет данных за последние 30 дней")
 
-    dates = [r.completed_at.date() for r in rows]
-    volumes = [float(r.total_volume_kg or 0) for r in rows]
+    dates = []
+    volumes = []
+    for row in rows:
+        volume = float(row.total_volume_kg or 0)
+        if volume <= 0:
+            fallback_res = await session.execute(
+                select(func.sum(ExerciseSet.reps_done * ExerciseSet.weight_kg))
+                .join(SessionExercise, ExerciseSet.session_exercise_id == SessionExercise.id)
+                .where(SessionExercise.session_id == row.id)
+            )
+            volume = float(fallback_res.scalar() or 0)
+        dates.append(row.completed_at.date())
+        volumes.append(volume)
 
     fig, ax = plt.subplots(figsize=(8, 4), facecolor="#1a1a2e")
     ax.set_facecolor("#1a1a2e")

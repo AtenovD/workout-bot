@@ -95,9 +95,8 @@ async def cb_equipment(callback: CallbackQuery, session: AsyncSession, state: FS
 
 
 @router.message(Command("equipment"))
-async def cmd_equipment(message: Message, session: AsyncSession, state: FSMContext):
+async def cmd_equipment(message: Message, session: AsyncSession, state: FSMContext, user: User):
     """Open equipment manager — step 1: pick category."""
-    user = await session.get(User, message.from_user.id)
     if not user:
         await message.answer("Сначала зарегистрируйся — /start")
         return
@@ -127,7 +126,7 @@ async def back_to_categories(call: CallbackQuery, session: AsyncSession, state: 
 # ── Step 1 → Step 2: category clicked ──
 @router.callback_query(F.data.startswith("eq_cat:"), EquipmentStates.picking_category)
 @router.callback_query(F.data.startswith("eq_cat:"))
-async def pick_category(call: CallbackQuery, session: AsyncSession, state: FSMContext):
+async def pick_category(call: CallbackQuery, session: AsyncSession, state: FSMContext, user: User):
     """User picked a category — show items of that category."""
     category = call.data.split(":", 1)[1]
     meta = CATEGORY_META.get(EquipmentCategory(category), CATEGORY_META[EquipmentCategory.none])
@@ -135,7 +134,7 @@ async def pick_category(call: CallbackQuery, session: AsyncSession, state: FSMCo
     await state.set_state(EquipmentStates.picking_items)
     await state.update_data(current_category=category)
 
-    kb = await _build_category_items_kb(session, call.from_user.id, category)
+    kb = await _build_category_items_kb(session, user.id, category)
 
     await safe_edit_text(call.message,
         f"{meta['label_ru']}\n{meta['desc_ru']}\n\n"
@@ -149,12 +148,12 @@ async def pick_category(call: CallbackQuery, session: AsyncSession, state: FSMCo
 # ── Step 2: toggle equipment ──
 @router.callback_query(F.data.startswith("eq_toggle:"), EquipmentStates.picking_items)
 @router.callback_query(F.data.startswith("eq_toggle:"))
-async def toggle_equipment(call: CallbackQuery, session: AsyncSession, state: FSMContext):
+async def toggle_equipment(call: CallbackQuery, session: AsyncSession, state: FSMContext, user: User):
     """Toggle a specific equipment item for the user."""
     _, eq_id_str, category = call.data.split(":", 2)
     eq_id = int(eq_id_str)
 
-    user_id = call.from_user.id
+    user_id = user.id
     selected_ids = await _get_user_equipment_ids(session, user_id)
 
     if eq_id in selected_ids:
@@ -188,10 +187,10 @@ async def toggle_equipment(call: CallbackQuery, session: AsyncSession, state: FS
 
 # ── Done ──
 @router.callback_query(F.data == "eq_done")
-async def finish_equipment(call: CallbackQuery, session: AsyncSession, state: FSMContext):
+async def finish_equipment(call: CallbackQuery, session: AsyncSession, state: FSMContext, user: User):
     """User finished selecting equipment."""
     await state.clear()
-    user_id = call.from_user.id
+    user_id = user.id
     selected = await _get_user_equipment_ids(session, user_id)
     count = len(selected)
 
