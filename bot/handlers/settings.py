@@ -43,6 +43,24 @@ async def change_language(cb: CallbackQuery):
     await cb.answer()
 
 
+@router.callback_query(F.data.startswith("lang:"))
+async def save_language(cb: CallbackQuery, user: User, session: AsyncSession):
+    language_code = cb.data.split(":", 1)[1]
+    if language_code not in {"ru", "en"}:
+        await cb.answer("Unsupported language", show_alert=True)
+        return
+
+    user.language_code = language_code
+    await session.commit()
+
+    labels = {"ru": "Русский", "en": "English"}
+    await cb.message.edit_text(
+        f"✅ Язык изменён: <b>{labels[language_code]}</b>",
+        reply_markup=main_menu_keyboard(),
+        parse_mode="HTML",
+    )
+    await cb.answer()
+
 @router.callback_query(F.data == "settings:export")
 async def export_data(cb: CallbackQuery, user: User):
     async with AsyncSessionLocal() as session:

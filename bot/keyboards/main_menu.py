@@ -6,7 +6,7 @@ def main_menu_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🏋️ Тренировка", callback_data="menu:workout")],
         [
             InlineKeyboardButton(text="📊 Прогресс", callback_data="menu:progress"),
-            InlineKeyboardButton(text="🏆 Достижения", callback_data="menu:stats"),
+            InlineKeyboardButton(text="🏆 Достижения", callback_data="gam:achieve"),
         ],
         [
             InlineKeyboardButton(text="📋 Калибровка", callback_data="menu:calibration"),

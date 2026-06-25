@@ -71,6 +71,14 @@ async def ask_new_weight(callback: CallbackQuery, state: FSMContext):
     )
 
 
+@router.callback_query(F.data == "prof:recalibrate")
+async def recalibrate_profile(callback: CallbackQuery, state: FSMContext):
+    from bot.handlers.onboarding import step_gender
+
+    await callback.answer()
+    await step_gender(callback, state)
+
+
 @router.message(ProfileStates.entering_weight, F.text)
 async def save_new_weight(message: Message, state: FSMContext, user: User, session: AsyncSession):
     try:

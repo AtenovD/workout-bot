@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Integer, String, Enum, Float, Boolean, ForeignKey, DateTime, Date, Numeric, func
+from sqlalchemy import BigInteger, Integer, String, Enum, Boolean, ForeignKey, DateTime, Date, Numeric, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 from core.db import Base
@@ -20,8 +20,14 @@ class WorkoutSession(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True)
     plan_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("workout_plans.id"))
     scheduled_date: Mapped[Date | None] = mapped_column(Date)
-    status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), default=SessionStatus.planned)
-    difficulty_modifier: Mapped[DifficultyModifier] = mapped_column(Enum(DifficultyModifier), default=DifficultyModifier.normal)
+    status: Mapped[SessionStatus] = mapped_column(
+        Enum(SessionStatus, native_enum=False),
+        default=SessionStatus.planned,
+    )
+    difficulty_modifier: Mapped[DifficultyModifier] = mapped_column(
+        Enum(DifficultyModifier, native_enum=False),
+        default=DifficultyModifier.normal,
+    )
     started_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True))
     duration_min: Mapped[int | None] = mapped_column(Integer)

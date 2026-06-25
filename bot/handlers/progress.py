@@ -23,7 +23,7 @@ def progress_menu_kb():
         [InlineKeyboardButton(text="📊 График объёма", callback_data="prog:vol_chart")],
         [InlineKeyboardButton(text="⚖️ График веса", callback_data="prog:weight_chart")],
         [InlineKeyboardButton(text="🏆 Личные рекорды", callback_data="prog:records")],
-        [InlineKeyboardButton(text="📸 Добавить замер", callback_data="prog:add_measurement")],
+        [InlineKeyboardButton(text="📸 Добавить замер", callback_data="menu:measurements")],
         [InlineKeyboardButton(text="◀️ Назад", callback_data="menu:back")],
     ])
 
