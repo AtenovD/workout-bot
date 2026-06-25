@@ -10,6 +10,7 @@ from models.user import User
 from models.schedule import Schedule, ScheduleMode
 from bot.states.states import ScheduleStates
 from bot.utils.module_visuals import send_module_visual
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -108,7 +109,7 @@ async def toggle_reminder(callback: CallbackQuery, user: User, session: AsyncSes
 @router.callback_query(F.data == "sched:set_time")
 async def ask_reminder_time(callback: CallbackQuery, state: FSMContext):
     await state.set_state(ScheduleStates.entering_time)
-    await callback.message.edit_text("Введи время напоминания в формате ЧЧ:ММ\n_Например: 08:00_", parse_mode="Markdown")
+    await safe_edit_text(callback.message, "Введи время напоминания в формате ЧЧ:ММ\n_Например: 08:00_", parse_mode="Markdown")
     await callback.answer()
 
 

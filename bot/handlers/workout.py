@@ -23,6 +23,7 @@ from services.deload_on_return import apply_return_deload
 from services.rest_timer import run_rest_timer
 from services.workout_summary import build_workout_summary, format_summary_message
 import asyncio
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -95,7 +96,7 @@ async def choose_modifier(callback: CallbackQuery, state: FSMContext, user: User
     p = await session.execute(select(Profile).where(Profile.user_id == user.id))
     profile = p.scalar_one_or_none()
     if not profile or not profile.calibrated_at:
-        await callback.message.edit_text("Сначала пройди калибровку: /start")
+        await safe_edit_text(callback.message, "Сначала пройди калибровку: /start")
         return
     from models.user_equipment import UserEquipment
     eq_res = await session.execute(select(UserEquipment).where(UserEquipment.user_id == user.id))
@@ -116,7 +117,7 @@ async def choose_modifier(callback: CallbackQuery, state: FSMContext, user: User
     total_time = sum(se.target_sets * (45 + se.rest_seconds) for se, _ in exercises) // 60 + 10
     await state.update_data(workout_session_id=ws.id)
     await state.set_state(WorkoutStates.overview)
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         f"📋 <b>{mod_names[modifier]}</b>\n\n{ex_list}\n\n⏱ ~{total_time} мин",
         reply_markup=overview_kb(ws.id), parse_mode="HTML",
     )
@@ -136,7 +137,7 @@ async def begin_workout(callback: CallbackQuery, state: FSMContext, session: Asy
     )
     first_se = se_res.scalar_one_or_none()
     if not first_se:
-        await callback.message.edit_text("Список упражнений пуст.")
+        await safe_edit_text(callback.message, "Список упражнений пуст.")
         return
     ex = await session.get(Exercise, first_se.exercise_id)
     await state.update_data(current_set=1)
@@ -153,7 +154,7 @@ async def begin_workout(callback: CallbackQuery, state: FSMContext, session: Asy
             await callback.message.answer_photo(ex.photo_url, caption=f"<b>{ex.name_ru}</b>", parse_mode="HTML")
         except Exception:
             pass
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         f"<b>{ex.name_ru}</b>\nПодход 1 из {first_se.target_sets} · "
         f"{first_se.target_reps} повт. · {first_se.target_weight_kg or 0:.1f} кг",
         reply_markup=set_log_kb(first_se.id, 1, first_se.target_reps, first_se.target_weight_kg or 0.0),
@@ -217,7 +218,7 @@ async def rest_done(callback: CallbackQuery, state: FSMContext, session: AsyncSe
     se = await session.get(SessionExercise, se_id)
     ex = await session.get(Exercise, se.exercise_id)
     await state.update_data(current_set=next_set)
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         f"<b>{ex.name_ru}</b>\nПодход {next_set} из {se.target_sets} · "
         f"{se.target_reps} повт. · {se.target_weight_kg or 0:.1f} кг",
         reply_markup=set_log_kb(se_id, next_set, se.target_reps, se.target_weight_kg or 0.0),
@@ -258,11 +259,11 @@ async def resume_workout(callback, state, session):
     )
     se = res2.scalars().first()
     if not se:
-        await callback.message.edit_text("Все упражнения выполнены!")
+        await safe_edit_text(callback.message, "Все упражнения выполнены!")
         return
     ex = await session.get(Exercise, se.exercise_id)
     await state.update_data(current_set=1, current_reps=None, current_weight=None)
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         f"▶️ <b>{ex.name_ru}</b>\nПодход 1 из {se.target_sets} · {se.target_reps} повт. · {se.target_weight_kg or 0:.1f} кг",
         reply_markup=set_log_kb(se.id, 1, se.target_reps, se.target_weight_kg or 0.0),
         parse_mode="HTML"
@@ -279,7 +280,7 @@ async def abort_workout(callback, state, session):
         ws.completed_at = datetime.utcnow()
         await session.commit()
     await state.clear()
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         "❌ Тренировка завершена досрочно. Возвращайся скорее! 💪",
         reply_markup=main_menu_keyboard()
     )
@@ -297,7 +298,7 @@ async def regen_workout(callback, state, session):
             await session.commit()
     await state.clear()
     await state.set_state(WorkoutStates.choosing_modifier)
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         "🔄 <b>Перегенерируем!</b>\n\nВыбери интенсивность:",
         reply_markup=modifier_kb(),
         parse_mode="HTML"
@@ -331,7 +332,7 @@ async def replace_exercise(callback, state, session, user):
         await callback.answer("Нет доступных замен с твоим инвентарём.", show_alert=True)
         return
     buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data=f"set:cancel_replace:{se_id}")])
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         f"🔄 Замена для <b>{ex.name_ru}</b>\nВыбери альтернативу:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         parse_mode="HTML"
@@ -353,7 +354,7 @@ async def do_replace_exercise(callback, state, session):
     data = await state.get_data()
     cs = data.get("current_set", 1)
     await state.update_data(current_reps=None, current_weight=None)
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         f"✅ Заменено на <b>{new_ex.name_ru}</b>\nПодход {cs} из {se.target_sets} · {se.target_reps} повт. · {se.target_weight_kg or 0:.1f} кг",
         reply_markup=set_log_kb(se_id, cs, se.target_reps, se.target_weight_kg or 0.0),
         parse_mode="HTML"
@@ -370,7 +371,7 @@ async def cancel_replace(callback, state, session):
     cs = data.get("current_set", 1)
     reps = data.get("current_reps") or se.target_reps
     weight = data.get("current_weight") if data.get("current_weight") is not None else (se.target_weight_kg or 0.0)
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         f"<b>{ex.name_ru}</b>\nПодход {cs} из {se.target_sets} · {reps} повт. · {weight:.1f} кг",
         reply_markup=set_log_kb(se_id, cs, reps, weight),
         parse_mode="HTML"

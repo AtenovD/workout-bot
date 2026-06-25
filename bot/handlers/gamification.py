@@ -11,6 +11,7 @@ from models.exercise import Exercise
 from models.workout import WorkoutSession, SessionStatus
 from bot.keyboards.main_menu import main_menu_keyboard
 from bot.utils.module_visuals import send_module_visual
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -37,7 +38,7 @@ def stats_kb():
 @router.callback_query(F.data == "menu:stats")
 async def show_stats(event, user: User, session: AsyncSession):
     is_callback = isinstance(event, CallbackQuery)
-    
+
     # Get or create stats
     res = await session.execute(select(UserStats).where(UserStats.user_id == user.id))
     stats = res.scalar()
@@ -45,7 +46,7 @@ async def show_stats(event, user: User, session: AsyncSession):
         stats = UserStats(user_id=user.id)
         session.add(stats)
         await session.commit()
-    
+
     level = stats.level or 1
     xp = stats.total_xp or 0
     xp_next = level * XP_PER_LEVEL
@@ -53,7 +54,7 @@ async def show_stats(event, user: User, session: AsyncSession):
     bar_len = 10
     filled = int(bar_len * progress_pct / 100)
     bar = "█" * filled + "░" * (bar_len - filled)
-    
+
     # Count workouts this week
     week_start = date.today() - timedelta(days=date.today().weekday())
     wk_res = await session.execute(
@@ -64,7 +65,7 @@ async def show_stats(event, user: User, session: AsyncSession):
         )
     )
     wk_this_week = wk_res.scalar() or 0
-    
+
     # Total workouts
     total_res = await session.execute(
         select(func.count(WorkoutSession.id)).where(
@@ -73,7 +74,7 @@ async def show_stats(event, user: User, session: AsyncSession):
         )
     )
     total_wk = total_res.scalar() or 0
-    
+
     text = (
         f"🏆 <b>{user.first_name or user.username or 'Атлет'}</b>\n\n"
         f"🟣 Уровень: <b>{level}</b>\n"
@@ -83,9 +84,9 @@ async def show_stats(event, user: User, session: AsyncSession):
         f"📅 Тренировок на этой неделе: <b>{wk_this_week}</b>\n"
         f"📊 Всего тренировок: <b>{total_wk}</b>"
     )
-    
+
     if is_callback:
-        await event.message.edit_text(text, reply_markup=stats_kb(), parse_mode="HTML")
+        await safe_edit_text(event.message, text, reply_markup=stats_kb(), parse_mode="HTML")
         await event.answer()
     else:
         await event.answer(text, reply_markup=stats_kb(), parse_mode="HTML")
@@ -95,12 +96,12 @@ async def show_stats(event, user: User, session: AsyncSession):
 async def show_achievements(callback: CallbackQuery, user: User, session: AsyncSession):
     all_ach = await session.execute(select(Achievement).order_by(Achievement.category, Achievement.tier))
     achievements = all_ach.scalars().all()
-    
+
     user_ach_res = await session.execute(
         select(UserAchievement.achievement_id).where(UserAchievement.user_id == user.id)
     )
     user_ach_ids = set(user_ach_res.scalars().all())
-    
+
     if not achievements:
         await send_module_visual(
             callback,
@@ -111,13 +112,13 @@ async def show_achievements(callback: CallbackQuery, user: User, session: AsyncS
             ]),
         )
         return
-    
+
     cat_labels = {AchievementCategory.consistency: "☀️ Регулярность",
                   AchievementCategory.strength: "💪 Сила",
                   AchievementCategory.volume: "📊 Объём",
                   AchievementCategory.milestone: "🎯 Рубежи",
                   AchievementCategory.special: "🌟 Особые"}
-    
+
     text = "🏆 <b>Достижения</b>\n\n"
     cur_cat = None
     for ach in achievements:
@@ -127,7 +128,7 @@ async def show_achievements(callback: CallbackQuery, user: User, session: AsyncS
         icon = "✅" if ach.id in user_ach_ids else "🔒"
         tier_icon = TIER_ICONS.get(ach.tier, "")
         text += f"  {icon} {tier_icon} <b>{ach.name}</b> — {ach.description or ''}\n"
-    
+
     await send_module_visual(
         callback,
         "achievements",
@@ -148,15 +149,15 @@ async def show_records(callback: CallbackQuery, user: User, session: AsyncSessio
         ).order_by(PersonalRecord.value.desc()).limit(10)
     )
     records = pr_res.all()
-    
+
     if not records:
         text = "🏋️ <b>Рекорды</b>\n\nПока нет записей. Начни тренироваться!"
     else:
         text = "🏋️ <b>Твои рекорды</b>\n\n"
         for pr, ex_name in records:
             text += f"🏆 <b>{ex_name}</b>: {float(pr.value):.1f} ({pr.record_type})\n"
-    
-    await callback.message.edit_text(
+
+    await safe_edit_text(callback.message,
         text,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="◀️ Назад", callback_data="menu:stats")]
@@ -175,7 +176,7 @@ async def show_history(callback: CallbackQuery, user: User, session: AsyncSessio
         ).order_by(WorkoutSession.completed_at.desc()).limit(10)
     )
     workouts = wk_res.scalars().all()
-    
+
     if not workouts:
         text = "📊 <b>История тренировок</b>\n\nПока пусто."
     else:
@@ -185,8 +186,8 @@ async def show_history(callback: CallbackQuery, user: User, session: AsyncSessio
             modifier = wk.difficulty_modifier.value if wk.difficulty_modifier else "normal"
             mod_icons = {"light": "☀️", "normal": "💪", "hard": "🔥"}
             text += f"{mod_icons.get(modifier, '')} {date_str} — {modifier}\n"
-    
-    await callback.message.edit_text(
+
+    await safe_edit_text(callback.message,
         text,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="◀️ Назад", callback_data="menu:stats")]

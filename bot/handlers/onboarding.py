@@ -14,6 +14,7 @@ from models.user_equipment import UserEquipment
 from models.calibration import CalibrationAnswer
 from models.exercise import Equipment, EquipmentCategory
 from services.calibration import process_calibration
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -132,7 +133,7 @@ async def onboarding_language(callback: CallbackQuery, state: FSMContext):
     lang = callback.data.split(":")[1]
     await state.update_data(language=lang)
     await state.set_state(OnboardingStates.welcome)
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         f"👋 <b>Привет, {callback.from_user.first_name}!</b>\n\n"
         "Я — твой <b>персональный AI-тренер</b>. Я:\n"
         "• Создам тренировки строго под твой инвентарь\n"
@@ -148,7 +149,7 @@ async def onboarding_language(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "cal:start")
 async def step_gender(callback: CallbackQuery, state: FSMContext):
     await state.set_state(OnboardingStates.gender)
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         "👤 <b>Шаг 1 / 11 — Пол</b>",
         reply_markup=gender_kb(), parse_mode="HTML"
     )
@@ -158,7 +159,7 @@ async def step_gender(callback: CallbackQuery, state: FSMContext):
 async def step_age(callback: CallbackQuery, state: FSMContext):
     await state.update_data(gender=callback.data.split(":")[2])
     await state.set_state(OnboardingStates.age)
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         "🎂 <b>Шаг 2 / 11 — Возраст</b>\n\nНапиши сколько лет (например <code>28</code>):",
         parse_mode="HTML"
     )
@@ -216,7 +217,7 @@ async def step_goal(message: Message, state: FSMContext):
 async def step_experience(callback: CallbackQuery, state: FSMContext):
     await state.update_data(goal=callback.data.split(":")[2])
     await state.set_state(OnboardingStates.experience)
-    await callback.message.edit_text("💪 <b>Шаг 7 / 11 — Опыт</b>", reply_markup=experience_kb(), parse_mode="HTML")
+    await safe_edit_text(callback.message, "💪 <b>Шаг 7 / 11 — Опыт</b>", reply_markup=experience_kb(), parse_mode="HTML")
 
 
 @router.callback_query(OnboardingStates.experience, F.data.startswith("cal:exp:"))
@@ -224,7 +225,7 @@ async def step_health_flags(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split(":")
     await state.update_data(experience_level=parts[2], experience_months=int(parts[3]), health_flags=[])
     await state.set_state(OnboardingStates.health_flags)
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         "🏥 <b>Шаг 8 / 11 — Здоровье</b>\n\nОтметь всё что актуально:",
         reply_markup=health_kb([]), parse_mode="HTML"
     )
@@ -236,7 +237,7 @@ async def toggle_health(callback: CallbackQuery, state: FSMContext, session: Asy
     if flag == "done":
         await state.update_data(equipment_ids=[])
         await state.set_state(OnboardingStates.equipment)
-        await callback.message.edit_text(
+        await safe_edit_text(callback.message,
             "🎒 <b>Шаг 9 / 11 — Инвентарь</b>\n\nОтметь что у тебя есть:",
             reply_markup=await build_category_kb(),
             parse_mode="HTML"
@@ -264,7 +265,7 @@ async def eq_pick_category_onboarding(call: CallbackQuery, state: FSMContext, se
     selected = list(data.get("equipment_ids", []))
     meta = CATEGORY_META_ONBOARDING.get(EquipmentCategory(category), CATEGORY_META_ONBOARDING[EquipmentCategory.none])
     await state.update_data(current_eq_category=category)
-    await call.message.edit_text(
+    await safe_edit_text(call.message,
         f"{meta['label_ru']}\n{meta['desc_ru']}\n\n"
         "<i>Нажми на предмет, чтобы добавить/убрать его.</i>",
         reply_markup=await build_equipment_items_kb(session, selected, category),
@@ -276,7 +277,7 @@ async def eq_pick_category_onboarding(call: CallbackQuery, state: FSMContext, se
 @router.callback_query(OnboardingStates.equipment, F.data == "eq_back_cat")
 async def eq_back_to_categories_onboarding(call: CallbackQuery, state: FSMContext):
     await state.update_data(current_eq_category=None)
-    await call.message.edit_text(
+    await safe_edit_text(call.message,
         "🏋️ <b>Выбери доступный инвентарь</b>:",
         reply_markup=await build_category_kb(),
         parse_mode="HTML",
@@ -312,7 +313,7 @@ async def finish_equipment_onboarding(call: CallbackQuery, state: FSMContext):
     logger = logging.getLogger(__name__)
     logger.info(f"Equipment done: user={call.from_user.id}, selected={selected_count} items")
     await state.set_state(OnboardingStates.training_days)
-    await call.message.edit_text(
+    await safe_edit_text(call.message,
         "📅 <b>Шаг 10 / 11 — Дни в неделю</b>\n\nСколько дней в неделю хочешь тренироваться?",
         reply_markup=days_kb(), parse_mode="HTML"
     )
@@ -323,7 +324,7 @@ async def finish_equipment_onboarding(call: CallbackQuery, state: FSMContext):
 async def step_duration(callback: CallbackQuery, state: FSMContext):
     await state.update_data(days_per_week=int(callback.data.split(":")[2]))
     await state.set_state(OnboardingStates.duration)
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         "⏱ <b>Шаг 11 / 11 — Длительность</b>\n\nЖелаемое время одной тренировки:",
         reply_markup=duration_kb(), parse_mode="HTML"
     )
@@ -397,7 +398,7 @@ async def finish_calibration(callback: CallbackQuery, state: FSMContext, user: U
     struct_label = "Всё тело (Fullbody)" if cal.training_structure.value == "fullbody" else f"Сплит — {cal.split_type.value if cal.split_type else ''}"
     intensity_bar = "🟩" * cal.intensity_level + "⬜" * (5 - cal.intensity_level)
 
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         "✅ <b>Калибровка завершена!</b>\n\n"
         "Твой профиль тренировок:\n\n"
         f"🎯 <b>Цель:</b> {goals_ru.get(data['goal'], data['goal'])}\n"

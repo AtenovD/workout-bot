@@ -16,6 +16,7 @@ from services.gamification import get_title, get_xp_for_next_level
 from services.stats_chart import generate_volume_chart, generate_weight_chart
 from bot.keyboards.main_menu import main_menu_keyboard
 from bot.utils.module_visuals import send_module_visual
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -114,11 +115,11 @@ async def personal_records(callback: CallbackQuery, user: User, session: AsyncSe
     rows = res.all()
 
     if not rows:
-        await callback.message.edit_text("Рекордов пока нет. Тренируйся!", reply_markup=progress_menu_kb())
+        await safe_edit_text(callback.message, "Рекордов пока нет. Тренируйся!", reply_markup=progress_menu_kb())
         return
 
     lines = ["🏆 <b>Личные рекорды (макс. вес)</b>\n"]
     for pr, ex_name in rows:
         lines.append(f"• {ex_name}: <b>{float(pr.value):.1f} кг</b>")
 
-    await callback.message.edit_text("\n".join(lines), reply_markup=progress_menu_kb(), parse_mode="HTML")
+    await safe_edit_text(callback.message, "\n".join(lines), reply_markup=progress_menu_kb(), parse_mode="HTML")

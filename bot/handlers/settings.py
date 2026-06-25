@@ -12,6 +12,7 @@ from models.personal_record import PersonalRecord
 from core.db import AsyncSessionLocal
 from bot.keyboards.main_menu import main_menu_keyboard
 from bot.utils.module_visuals import send_module_visual
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -39,7 +40,7 @@ async def change_language(cb: CallbackQuery):
         InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru"),
         InlineKeyboardButton(text="🇬🇧 English", callback_data="lang:en"),
     ], [InlineKeyboardButton(text="◀️", callback_data="menu:settings")]])
-    await cb.message.edit_text("🌍 Choose language / Выберите язык:", reply_markup=kb)
+    await safe_edit_text(cb.message, "🌍 Choose language / Выберите язык:", reply_markup=kb)
     await cb.answer()
 
 
@@ -54,7 +55,7 @@ async def save_language(cb: CallbackQuery, user: User, session: AsyncSession):
     await session.commit()
 
     labels = {"ru": "Русский", "en": "English"}
-    await cb.message.edit_text(
+    await safe_edit_text(cb.message,
         f"✅ Язык изменён: <b>{labels[language_code]}</b>",
         reply_markup=main_menu_keyboard(),
         parse_mode="HTML",
@@ -102,7 +103,7 @@ async def reset_confirm(cb: CallbackQuery):
         InlineKeyboardButton(text="⚠️ Да, сбросить всё", callback_data="settings:reset_do"),
         InlineKeyboardButton(text="◀️ Отмена", callback_data="menu:settings"),
     ]])
-    await cb.message.edit_text(
+    await safe_edit_text(cb.message,
         "⚠️ <b>Подтверждение сброса</b>\n\n"
         "Это удалит все твои тренировки, рекорды и измерения. Отменить нельзя.\n\n"
         "Ты уверен?",
@@ -117,7 +118,7 @@ async def reset_do(cb: CallbackQuery, user: User):
         await session.execute(delete(PersonalRecord).where(PersonalRecord.user_id == user.id))
         await session.execute(delete(BodyMeasurement).where(BodyMeasurement.user_id == user.id))
         await session.commit()
-    await cb.message.edit_text(
+    await safe_edit_text(cb.message,
         "🗑 <b>Прогресс сброшен.</b>\n\nВсе тренировки, рекорды и замеры удалены.",
         reply_markup=main_menu_keyboard(),
         parse_mode="HTML"

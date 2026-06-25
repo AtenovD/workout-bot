@@ -10,6 +10,7 @@ from datetime import datetime
 from models.body_measurement import BodyMeasurement
 from core.database import get_session
 from bot.keyboards.main_menu import main_menu_keyboard
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -77,7 +78,7 @@ async def start_new_measurement(cb: CallbackQuery, state: FSMContext):
     await state.update_data(steps={}, current_idx=0)
 
     field = MEASURE_ORDER[0]
-    await cb.message.edit_text(
+    await safe_edit_text(cb.message,
         f"📏 <b>Новый замер</b>\n\n"
         f"{MEASURE_LABELS[field]}:\n"
         f"<i>Введи число или напиши «пропустить»</i>",
@@ -153,7 +154,7 @@ async def measurement_history(cb: CallbackQuery, session: AsyncSession = None):
     records = result.scalars().all()
 
     if not records:
-        await cb.message.edit_text(
+        await safe_edit_text(cb.message,
             "📊 Замеров пока нет.",
             reply_markup=InlineKeyboardBuilder().button(text="◀️ Назад", callback_data="menu:measurements").as_markup(),
             parse_mode="HTML"
@@ -169,4 +170,4 @@ async def measurement_history(cb: CallbackQuery, session: AsyncSession = None):
 
     kb = InlineKeyboardBuilder()
     kb.button(text="◀️ Назад", callback_data="menu:measurements")
-    await cb.message.edit_text("\n".join(lines), reply_markup=kb.as_markup(), parse_mode="HTML")
+    await safe_edit_text(cb.message, "\n".join(lines), reply_markup=kb.as_markup(), parse_mode="HTML")

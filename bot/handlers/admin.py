@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from core.db import AsyncSessionLocal
 from models.user import User
 from models.workout import WorkoutSession, SessionStatus
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 ADMIN_IDS: set = set()
@@ -59,7 +60,7 @@ async def admin_menu_cb(callback: CallbackQuery, user: User):
         f"🏋️ Тренировок: <b>{sessions_total}</b>\n"
         f"📈 Активных за 7д: <b>{active_7d}</b>"
     )
-    await callback.message.edit_text(text, parse_mode="HTML")
+    await safe_edit_text(callback.message, text, parse_mode="HTML")
 
 
 @router.message(Command("broadcast"))

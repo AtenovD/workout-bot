@@ -3,6 +3,7 @@ from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 
 from bot.keyboards.main_menu import main_menu_keyboard
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -18,7 +19,7 @@ async def main_menu(event, **kwargs):
         "Выбери модуль ниже — я открою нужный экран и поведу дальше."
     )
     if isinstance(event, CallbackQuery):
-        await event.message.edit_text(text, reply_markup=main_menu_keyboard(), parse_mode="HTML")
+        await safe_edit_text(event.message, text, reply_markup=main_menu_keyboard(), parse_mode="HTML")
         await event.answer()
     else:
         await event.answer(text, reply_markup=main_menu_keyboard(), parse_mode="HTML")

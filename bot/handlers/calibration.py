@@ -10,6 +10,7 @@ from models.calibration import CalibrationAnswer
 from models.user import User
 from bot.keyboards.main_menu import main_menu_keyboard
 from bot.utils.module_visuals import send_module_visual
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -47,16 +48,16 @@ CAL_IDX = {}  # question_idx -> question
 @router.callback_query(F.data == "menu:calibration")
 async def start_calibration(event, state: FSMContext, user: User, session: AsyncSession):
     is_callback = isinstance(event, CallbackQuery)
-    
+
     await state.clear()
     await state.update_data(cal_idx=0, cal_answers={})
-    
+
     q = CALIBRATION_QUESTIONS[0]
     buttons = [[InlineKeyboardButton(text=label, callback_data=f"cal:a:{q['key']}:{val}")] for label, val in q["options"]]
     buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data="menu:back")])
-    
+
     text = f"📋 <b>Калибровка — вопрос 1 из {len(CALIBRATION_QUESTIONS)}</b>\n\n{q['question']}"
-    
+
     await send_module_visual(event, "calibration", text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
 
 
@@ -64,7 +65,7 @@ async def start_calibration(event, state: FSMContext, user: User, session: Async
 async def process_cal_answer(callback: CallbackQuery, state: FSMContext, user: User, session: AsyncSession):
     parts = callback.data.split(":")
     key, val = parts[2], parts[3]
-    
+
     data = await state.get_data()
     idx = data.get("cal_idx", 0)
     answers = data.get("cal_answers", {})
@@ -77,25 +78,25 @@ async def process_cal_answer(callback: CallbackQuery, state: FSMContext, user: U
         answer={"key": key, "value": val, "date": str(date.today())}
     ))
     await session.commit()
-    
+
     idx += 1
-    
+
     if idx >= len(CALIBRATION_QUESTIONS):
         await state.clear()
-        await callback.message.edit_text(
+        await safe_edit_text(callback.message,
             "✅ <b>Калибровка завершена!</b>\n\nТеперь тренировки будут подбираться с учётом твоих предпочтений.\n\nНачни тренировку через главное меню!",
             reply_markup=main_menu_keyboard(),
             parse_mode="HTML"
         )
         await callback.answer()
         return
-    
+
     q = CALIBRATION_QUESTIONS[idx]
     buttons = [[InlineKeyboardButton(text=label, callback_data=f"cal:a:{q['key']}:{val}")] for label, val in q["options"]]
     buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data="menu:back")])
-    
+
     await state.update_data(cal_idx=idx, cal_answers=answers)
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         f"📋 <b>Калибровка — вопрос {idx+1} из {len(CALIBRATION_QUESTIONS)}</b>\n\n{q['question']}",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         parse_mode="HTML"

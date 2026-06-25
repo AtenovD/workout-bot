@@ -31,16 +31,12 @@ async def send_module_visual(
     if isinstance(event, CallbackQuery):
         await event.message.answer_photo(
             photo,
-            caption=caption,
-            reply_markup=reply_markup,
-            parse_mode=parse_mode,
         )
+        await event.message.answer(caption, reply_markup=reply_markup, parse_mode=parse_mode)
         await event.answer()
         return
 
     await event.answer_photo(
         photo,
-        caption=caption,
-        reply_markup=reply_markup,
-        parse_mode=parse_mode,
     )
+    await event.answer(caption, reply_markup=reply_markup, parse_mode=parse_mode)

@@ -11,6 +11,7 @@ from models.profile import Profile, Goal, ExperienceLevel
 from models.body_measurement import BodyMeasurement
 from bot.states.states import ProfileStates
 from bot.keyboards.main_menu import main_menu_keyboard
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -57,7 +58,7 @@ async def show_profile(event, user: User, session: AsyncSession, **kwargs):
         kb = profile_menu_kb()
 
     if isinstance(event, CallbackQuery):
-        await msg.edit_text(text, reply_markup=kb, parse_mode="HTML")
+        await safe_edit_text(msg, text, reply_markup=kb, parse_mode="HTML")
     else:
         await msg.answer(text, reply_markup=kb, parse_mode="HTML")
 
@@ -65,7 +66,7 @@ async def show_profile(event, user: User, session: AsyncSession, **kwargs):
 @router.callback_query(F.data == "prof:update_weight")
 async def ask_new_weight(callback: CallbackQuery, state: FSMContext):
     await state.set_state(ProfileStates.entering_weight)
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         "Введи свой текущий вес (кг):\n_Например: 82.5_",
         parse_mode="Markdown",
     )
@@ -106,7 +107,7 @@ async def change_goal(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="⚖️ Поддержание",  callback_data="goal:maintenance")],
         [InlineKeyboardButton(text="🏃 Кардио",        callback_data="goal:cardio")],
     ])
-    await callback.message.edit_text("Выбери новую цель:", reply_markup=kb)
+    await safe_edit_text(callback.message, "Выбери новую цель:", reply_markup=kb)
 
 
 @router.callback_query(F.data.startswith("goal:"))
@@ -118,7 +119,7 @@ async def save_goal(callback: CallbackQuery, user: User, session: AsyncSession):
         profile.goal = Goal(goal_value)
         await session.commit()
     goal_names = {"mass_gain": "Набор массы", "weight_loss": "Похудение", "maintenance": "Поддержание", "cardio": "Кардио"}
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         f"✅ Цель изменена на: {goal_names.get(goal_value, goal_value)}",
         reply_markup=profile_menu_kb()
     )

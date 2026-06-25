@@ -10,6 +10,7 @@ from bot.utils.module_visuals import send_module_visual
 from models.user import User
 from models.challenge import UserChallenge
 from models.gamification import UserStats
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -78,7 +79,7 @@ async def join_challenge(callback: CallbackQuery, user: User, session: AsyncSess
     session.add(challenge)
     await session.commit()
 
-    await callback.message.edit_text(
+    await safe_edit_text(callback.message,
         "🔥 <b>Ты в игре!</b>\n\n"
         "30-дневный челлендж активирован.\n"
         "Каждая завершённая тренировка приближает тебя к цели.\n\n"

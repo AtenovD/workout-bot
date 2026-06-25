@@ -6,6 +6,7 @@ from sqlalchemy import select
 
 from models.user import User
 from models.gamification import Achievement, UserAchievement, AchievementTier
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -44,6 +45,6 @@ async def show_achievements(event, user: User, session: AsyncSession, **kwargs):
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="◀️ Назад", callback_data="menu:back")]])
 
     if isinstance(event, CallbackQuery):
-        await msg.edit_text(text[:4000], reply_markup=kb, parse_mode="HTML")
+        await safe_edit_text(msg, text[:4000], reply_markup=kb, parse_mode="HTML")
     else:
         await msg.answer(text[:4000], reply_markup=kb, parse_mode="HTML")

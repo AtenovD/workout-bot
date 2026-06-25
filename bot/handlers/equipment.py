@@ -16,6 +16,7 @@ from models.user import User
 from models.exercise import Equipment, EquipmentCategory
 from models.user_equipment import UserEquipment
 from bot.utils.module_visuals import send_module_visual
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -115,7 +116,7 @@ async def cmd_equipment(message: Message, session: AsyncSession, state: FSMConte
 async def back_to_categories(call: CallbackQuery, session: AsyncSession, state: FSMContext):
     """Return to category selection."""
     await state.set_state(EquipmentStates.picking_category)
-    await call.message.edit_text(
+    await safe_edit_text(call.message,
         "🏋️ <b>Выбери категорию инвентаря</b>:",
         reply_markup=_build_category_kb(),
         parse_mode="HTML",
@@ -136,7 +137,7 @@ async def pick_category(call: CallbackQuery, session: AsyncSession, state: FSMCo
 
     kb = await _build_category_items_kb(session, call.from_user.id, category)
 
-    await call.message.edit_text(
+    await safe_edit_text(call.message,
         f"{meta['label_ru']}\n{meta['desc_ru']}\n\n"
         "<i>Нажми на предмет, чтобы добавить/убрать его из своего инвентаря.</i>",
         reply_markup=kb,
@@ -194,7 +195,7 @@ async def finish_equipment(call: CallbackQuery, session: AsyncSession, state: FS
     selected = await _get_user_equipment_ids(session, user_id)
     count = len(selected)
 
-    await call.message.edit_text(
+    await safe_edit_text(call.message,
         f"✅ Готово! В твоём инвентаре <b>{count}</b> предметов.\n"
         f"Изменить можно в любой момент — /equipment",
         parse_mode="HTML",

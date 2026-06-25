@@ -9,6 +9,7 @@ from models.user import User
 from models.workout import WorkoutSession, SessionStatus
 from models.gamification import UserStats, UserAchievement, Achievement
 from bot.keyboards.main_menu import main_menu_keyboard
+from bot.utils.message_edit import safe_edit_text
 
 router = Router()
 
@@ -58,6 +59,6 @@ async def show_stats(event, user: User, session: AsyncSession, **kwargs):
     if isinstance(event, CallbackQuery):
         from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="◀️ Назад", callback_data="menu:back")]])
-        await msg.edit_text(text, reply_markup=kb, parse_mode="HTML")
+        await safe_edit_text(msg, text, reply_markup=kb, parse_mode="HTML")
     else:
         await msg.answer(text, reply_markup=main_menu_keyboard(), parse_mode="HTML")
