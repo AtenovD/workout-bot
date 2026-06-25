@@ -42,8 +42,8 @@ def overview_kb(session_id):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="menu:back")],
     ])
 
-def set_log_kb(se_id, set_num, reps, weight):
-    return InlineKeyboardMarkup(inline_keyboard=[
+def set_log_kb(se_id, set_num, reps, weight, technique_url=None):
+    rows = [
         [InlineKeyboardButton(text="−", callback_data=f"set:rm:{se_id}"),
          InlineKeyboardButton(text=f"🔁 {reps} повт.", callback_data=f"set:rs:{se_id}"),
          InlineKeyboardButton(text="+", callback_data=f"set:rp:{se_id}")],
@@ -55,7 +55,14 @@ def set_log_kb(se_id, set_num, reps, weight):
          InlineKeyboardButton(text="😊 Легко", callback_data=f"set:easy:{se_id}")],
         [InlineKeyboardButton(text="🔄 Заменить", callback_data=f"set:replace:{se_id}"),
          InlineKeyboardButton(text="⏭ Пропустить", callback_data=f"set:skip:{se_id}")],
-    ])
+    ]
+    if technique_url:
+        rows.append([InlineKeyboardButton(text="🎞 Техника", url=technique_url)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def exercise_technique_url(ex):
+    return getattr(ex, "gif_url", None) or getattr(ex, "photo_url", None) or getattr(ex, "video_url", None)
 
 def rest_kb(se_id, next_set):
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -99,7 +106,7 @@ async def choose_modifier(callback: CallbackQuery, state: FSMContext, user: User
         await safe_edit_text(callback.message, "Сначала пройди калибровку: /start")
         return
     from models.user_equipment import UserEquipment
-    eq_res = await session.execute(select(UserEquipment).where(UserEquipment.user_id == user.id))
+    eq_res = await session.execute(select(UserEquipment).where(UserEquipment.user_id == user.id, UserEquipment.has_it == True))
     eq_ids = [ue.equipment_id for ue in eq_res.scalars().all()]
     ws = WorkoutSession(user_id=user.id, status=SessionStatus.planned,
                         difficulty_modifier=DifficultyModifier(modifier), scheduled_date=date.today())
@@ -157,7 +164,7 @@ async def begin_workout(callback: CallbackQuery, state: FSMContext, session: Asy
     await safe_edit_text(callback.message,
         f"<b>{ex.name_ru}</b>\nПодход 1 из {first_se.target_sets} · "
         f"{first_se.target_reps} повт. · {first_se.target_weight_kg or 0:.1f} кг",
-        reply_markup=set_log_kb(first_se.id, 1, first_se.target_reps, first_se.target_weight_kg or 0.0),
+        reply_markup=set_log_kb(first_se.id, 1, first_se.target_reps, first_se.target_weight_kg or 0.0, exercise_technique_url(ex)),
         parse_mode="HTML"
     )
 
@@ -200,15 +207,22 @@ async def adjust_values(callback: CallbackQuery, state: FSMContext, session: Asy
     se = await session.get(SessionExercise, se_id)
     data = await state.get_data()
     current_set = data.get("current_set", 1)
-    reps = data.get("current_reps") or se.target_reps
+    reps = int(data.get("current_reps") or se.target_reps or 1)
     weight = data.get("current_weight") if data.get("current_weight") is not None else (se.target_weight_kg or 0.0)
+    weight = float(weight or 0.0)
     if action == "rm": reps = max(1, reps - 1)
     elif action == "rp": reps = reps + 1
     elif action == "wm": weight = max(0.0, round(weight - 2.5, 2))
     elif action == "wp": weight = round(weight + 2.5, 2)
     await state.update_data(current_reps=reps, current_weight=weight)
-    await callback.message.edit_reply_markup(reply_markup=set_log_kb(se_id, current_set, reps, weight))
+    ex = await session.get(Exercise, se.exercise_id)
+    await callback.message.edit_reply_markup(reply_markup=set_log_kb(se_id, current_set, reps, weight, exercise_technique_url(ex)))
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("set:rs:") | F.data.startswith("set:ws:"))
+async def set_display_value(callback: CallbackQuery):
+    await callback.answer("Используй − / + рядом с показателем.")
 
 
 @router.callback_query(F.data.startswith("rest:"))
@@ -221,7 +235,7 @@ async def rest_done(callback: CallbackQuery, state: FSMContext, session: AsyncSe
     await safe_edit_text(callback.message,
         f"<b>{ex.name_ru}</b>\nПодход {next_set} из {se.target_sets} · "
         f"{se.target_reps} повт. · {se.target_weight_kg or 0:.1f} кг",
-        reply_markup=set_log_kb(se_id, next_set, se.target_reps, se.target_weight_kg or 0.0),
+        reply_markup=set_log_kb(se_id, next_set, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex)),
         parse_mode="HTML"
     )
 
@@ -235,7 +249,7 @@ async def next_exercise(callback: CallbackQuery, state: FSMContext, session: Asy
     await callback.message.answer(
         f"<b>{ex.name_ru}</b>\nПодход 1 из {se.target_sets} · "
         f"{se.target_reps} повт. · {se.target_weight_kg or 0:.1f} кг",
-        reply_markup=set_log_kb(se_id, 1, se.target_reps, se.target_weight_kg or 0.0),
+        reply_markup=set_log_kb(se_id, 1, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex)),
         parse_mode="HTML"
     )
 
@@ -265,7 +279,7 @@ async def resume_workout(callback, state, session):
     await state.update_data(current_set=1, current_reps=None, current_weight=None)
     await safe_edit_text(callback.message,
         f"▶️ <b>{ex.name_ru}</b>\nПодход 1 из {se.target_sets} · {se.target_reps} повт. · {se.target_weight_kg or 0:.1f} кг",
-        reply_markup=set_log_kb(se.id, 1, se.target_reps, se.target_weight_kg or 0.0),
+        reply_markup=set_log_kb(se.id, 1, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex)),
         parse_mode="HTML"
     )
     await callback.answer()
@@ -356,7 +370,7 @@ async def do_replace_exercise(callback, state, session):
     await state.update_data(current_reps=None, current_weight=None)
     await safe_edit_text(callback.message,
         f"✅ Заменено на <b>{new_ex.name_ru}</b>\nПодход {cs} из {se.target_sets} · {se.target_reps} повт. · {se.target_weight_kg or 0:.1f} кг",
-        reply_markup=set_log_kb(se_id, cs, se.target_reps, se.target_weight_kg or 0.0),
+        reply_markup=set_log_kb(se_id, cs, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(new_ex)),
         parse_mode="HTML"
     )
     await callback.answer()
@@ -371,9 +385,10 @@ async def cancel_replace(callback, state, session):
     cs = data.get("current_set", 1)
     reps = data.get("current_reps") or se.target_reps
     weight = data.get("current_weight") if data.get("current_weight") is not None else (se.target_weight_kg or 0.0)
+    weight = float(weight or 0.0)
     await safe_edit_text(callback.message,
         f"<b>{ex.name_ru}</b>\nПодход {cs} из {se.target_sets} · {reps} повт. · {weight:.1f} кг",
-        reply_markup=set_log_kb(se_id, cs, reps, weight),
+        reply_markup=set_log_kb(se_id, cs, reps, weight, exercise_technique_url(ex)),
         parse_mode="HTML"
     )
     await callback.answer()
@@ -387,14 +402,15 @@ async def set_too_hard(callback, state, session):
     data = await state.get_data()
     cs = data.get("current_set", 1)
     weight = data.get("current_weight") if data.get("current_weight") is not None else (se.target_weight_kg or 0.0)
-    reps = data.get("current_reps") or se.target_reps
+    weight = float(weight or 0.0)
+    reps = int(data.get("current_reps") or se.target_reps or 1)
     step = 2.5 if ex.exercise_type and ex.exercise_type.value == "compound" else 1.25
     new_weight = max(0.0, round(weight - step, 2))
     new_reps = max(1, reps - 1)
     se.target_weight_kg = new_weight
     await state.update_data(current_weight=new_weight, current_reps=new_reps, feedback_rpe=9)
     await session.commit()
-    await callback.message.edit_reply_markup(reply_markup=set_log_kb(se_id, cs, new_reps, new_weight))
+    await callback.message.edit_reply_markup(reply_markup=set_log_kb(se_id, cs, new_reps, new_weight, exercise_technique_url(ex)))
     await callback.answer(f"⬇️ Снизил до {new_weight:.1f} кг / {new_reps} повт.")
 
 
@@ -406,14 +422,15 @@ async def set_too_easy(callback, state, session):
     data = await state.get_data()
     cs = data.get("current_set", 1)
     weight = data.get("current_weight") if data.get("current_weight") is not None else (se.target_weight_kg or 0.0)
-    reps = data.get("current_reps") or se.target_reps
+    weight = float(weight or 0.0)
+    reps = int(data.get("current_reps") or se.target_reps or 1)
     step = 2.5 if ex.exercise_type and ex.exercise_type.value == "compound" else 1.25
     new_weight = round(weight + step, 2)
     new_reps = reps + 1
     se.target_weight_kg = new_weight
     await state.update_data(current_weight=new_weight, current_reps=new_reps, feedback_rpe=6)
     await session.commit()
-    await callback.message.edit_reply_markup(reply_markup=set_log_kb(se_id, cs, new_reps, new_weight))
+    await callback.message.edit_reply_markup(reply_markup=set_log_kb(se_id, cs, new_reps, new_weight, exercise_technique_url(ex)))
     await callback.answer(f"⬆️ Поднял до {new_weight:.1f} кг / {new_reps} повт.")
 
 

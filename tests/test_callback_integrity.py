@@ -25,6 +25,8 @@ def test_static_callback_buttons_have_handlers():
     unmatched = []
     for callback_data, path in sorted(set(buttons)):
         if "{" in callback_data:
+            callback_data = callback_data.split("{", 1)[0]
+        if not callback_data:
             continue
         matched = any(
             (kind == "eq" and callback_data == value)
