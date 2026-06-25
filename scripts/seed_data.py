@@ -15,7 +15,8 @@ from models.exercise import Equipment, MuscleGroup, Exercise, EquipmentCategory,
 from models.gamification import Achievement, AchievementCategory, AchievementTier, UserStats
 from scripts.exercises_chest_back import EXERCISES_CHEST_BACK
 from scripts.exercises_rest import EXERCISES_REST
-# ALL_EXTRA_EXERCISES removed — exercises without GIFs
+from scripts.exercises_extra import ALL_EXTRA_EXERCISES
+from scripts.exercises_curated import CURATED_GYM_EXERCISES
 from scripts.exercises_new import EXERCISES_NEW
 
 
@@ -42,7 +43,7 @@ EQUIPMENT_DATA = [
      "photo_url": "https://images.unsplash.com/photo-1607962837359-5e7e89f86776?w=400"},
     {"code": "ab_wheel", "name_ru": "Ролик для пресса", "name_en": "Ab Wheel", "category": "portable", "icon": "🎡",
      "photo_url": "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400"},
-    {"code": "barbell_ez_short", "name_ru": "EZ-гриф", "name_en": "EZ Curl Bar", "category": "portable", "icon": "〰️",
+    {"code": "barbell_ez_curl", "name_ru": "EZ-гриф", "name_en": "EZ Curl Bar", "category": "portable", "icon": "〰️",
      "photo_url": "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=400"},
 
     # ── Стационарный ──
@@ -102,7 +103,6 @@ EQUIPMENT_ALIASES = {
     "Kettlebells": "kettlebell",
     "Cable": "cable_machine",
     "Machine": "cable_machine",
-    "Other": "bodyweight",
     "barbell": "barbell_standard",
     "dumbbell": "dumbbell",
     "kettlebell": "kettlebell",
@@ -132,6 +132,52 @@ MUSCLE_GROUP_DATA = [
     {"code": "obliques",      "name_ru": "Косые мышцы живота",      "name_en": "Obliques",      "body_part": "core"},
     {"code": "full_body",     "name_ru": "Всё тело",                "name_en": "Full Body",     "body_part": "full_body"},
 ]
+
+CURATED_EXTRA_CODES = {
+    "squat_barbell", "leg_press", "leg_extension", "lunge_barbell", "lunge_dumbbell",
+    "bulgarian_split_squat", "rdl_barbell", "leg_curl_machine", "glute_kickback",
+    "pullup", "pullup_close_grip", "lat_pulldown_wide", "lat_pulldown_close",
+    "row_cable_seated", "row_dumbbell_single", "bench_press_incline_barbell",
+    "fly_cable_low", "fly_cable_high", "ohp_barbell", "lateral_raise",
+    "front_raise", "reverse_fly", "curl_cable", "curl_concentration",
+    "tricep_pushdown_bar", "tricep_pushdown_rope", "skull_crusher",
+    "tricep_kickback", "cable_crunch",
+}
+
+EXERCISE_OVERRIDES = {
+    "lateral_raises": {"name_ru": "Подъёмы гантелей через стороны"},
+    "db_curl": {"name_ru": "Сгибание гантелей на бицепс"},
+    "leg_press_ex": {"name_ru": "Жим ногами", "equipment": "leg_press"},
+    "leg_curl_ex": {"name_ru": "Сгибание ног лёжа", "equipment": "leg_curl"},
+    "lat_pulldown": {"equipment": "lat_pulldown"},
+    "seated_cable_row": {"name_ru": "Горизонтальная тяга", "equipment": "seated_row", "muscle": "middle_back"},
+    "cable_crossover": {"name_ru": "Сведение рук в кроссовере", "equipment": "cable_machine"},
+    "tricep_pushdown": {"name_ru": "Разгибание на верхнем блоке", "equipment": "cable_machine"},
+    "ab_wheel": {"equipment": "ab_wheel"},
+    "dead_hang": {"equipment": "pullup_bar"},
+    "trx_row": {"equipment": "trx"},
+    "trx_pushup": {"equipment": "trx"},
+    "trx_squat": {"equipment": "trx", "muscle": "quadriceps"},
+    "trx_plank": {"equipment": "trx"},
+    "band_squat": {"muscle": "quadriceps", "equipment": "resistance_band"},
+    "band_good_morning": {"muscle": "hamstrings", "equipment": "resistance_band"},
+    "band_pull_apart": {"equipment": "resistance_band"},
+    "band_curl": {"equipment": "resistance_band"},
+    "kettlebell_swing": {"muscle": "glutes", "equipment": "kettlebell"},
+    "kettlebell_windmill": {"equipment": "kettlebell"},
+    "kettlebell_row": {"equipment": "kettlebell"},
+    "cable_hip_abduction": {"equipment": "cable_machine"},
+    "cable_woodchop": {"equipment": "cable_machine"},
+    "cable_pull_through": {"equipment": "cable_machine"},
+}
+
+INACTIVE_EXERCISE_CODES = {
+    "burpees", "burpee", "mountain_climbers", "mountain_climber", "jumping_jacks",
+    "jump_rope_ex", "jump_rope", "ankle_circles", "hip_90_90_stretch",
+    "cat_cow_stretch", "world_greatest_stretch", "pistol_squat", "pike_pushup",
+    "dragon_flag", "archer_pushup", "tuck_jump", "jump_squat", "lateral_bound",
+    "broad_jump", "band_good_morning", "kettlebell_windmill", "wrist_roller",
+}
 
 # ─── Achievements ─────────────────────────────────────────────────────────────
 ACHIEVEMENTS_DATA = [
@@ -189,9 +235,11 @@ async def insert_or_update(session, model_class, unique_field, items):
 
 async def seed_exercises(session, equipment_map, muscle_map):
     """Seed all exercises from all source files."""
-    all_exercises = EXERCISES_CHEST_BACK + EXERCISES_REST + EXERCISES_NEW
+    curated_extra = [e for e in ALL_EXTRA_EXERCISES if e["code"] in CURATED_EXTRA_CODES]
+    all_exercises = EXERCISES_CHEST_BACK + EXERCISES_REST + EXERCISES_NEW + curated_extra + CURATED_GYM_EXERCISES
     count_new = 0
     for ex in all_exercises:
+        ex = {**ex, **EXERCISE_OVERRIDES.get(ex["code"], {})}
         res = await session.execute(select(Exercise).where(Exercise.code == ex["code"]))
         existing = res.scalar_one_or_none()
 
@@ -232,7 +280,7 @@ async def seed_exercises(session, equipment_map, muscle_map):
             "met_value": ex.get("met_value"),
             "gif_url": ex.get("gif_url"),
             "photo_url": ex.get("photo_url"),
-            "is_active": True,
+            "is_active": ex.get("is_active", ex["code"] not in INACTIVE_EXERCISE_CODES),
         }
 
         if not existing:
@@ -252,21 +300,6 @@ async def main():
     #     await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSessionLocal() as session:
-        # Cleanup: remove legacy equipment records with bad names
-        from sqlalchemy import delete
-        KNOWN_CODES = [e["code"] for e in EQUIPMENT_DATA]
-        await session.execute(
-            delete(Equipment).where(Equipment.code.not_in(KNOWN_CODES))
-        )
-        # Fix any stale name_ru that slipped through (e.g. "Тренажёр", "Блочный тренажёр")
-        BAD_NAMES = ["Тренажёр", "Блочный тренажёр", "Тренажор"]
-        for bad in BAD_NAMES:
-            res = await session.execute(select(Equipment).where(Equipment.name_ru == bad))
-            old_eq = res.scalars().all()
-            for eq in old_eq:
-                await session.delete(eq)
-        await session.commit()
-
         print("Seeding equipment...")
         eq_data = [{k: v for k, v in e.items() if k != "icon"} for e in EQUIPMENT_DATA]
         for item in EQUIPMENT_DATA:
@@ -301,7 +334,11 @@ async def main():
 
         print("Seeding exercises...")
         new_ex = await seed_exercises(session, equipment_map, muscle_map)
-        total = len(EXERCISES_CHEST_BACK) + len(EXERCISES_REST) + len(EXERCISES_NEW)
+        total = (
+            len(EXERCISES_CHEST_BACK) + len(EXERCISES_REST) + len(EXERCISES_NEW)
+            + len([e for e in ALL_EXTRA_EXERCISES if e["code"] in CURATED_EXTRA_CODES])
+            + len(CURATED_GYM_EXERCISES)
+        )
         print(f"  Exercises: {total} total, {new_ex} new")
 
         print("Seeding achievements...")

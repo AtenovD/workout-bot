@@ -1,0 +1,112 @@
+"""Curated gym-first exercise additions.
+
+This file covers the product catalogue that should be available for normal gym
+workouts. The older seed files still contain fallback, cardio, mobility, TRX,
+and band movements, but these entries are the preferred strength catalogue.
+"""
+
+_GIF = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/"
+
+CURATED_GYM_EXERCISES = [
+    # Dumbbells: chest
+    {"code": "db_incline_press", "name_ru": "Жим гантелей на наклонной скамье", "name_en": "Incline Dumbbell Press",
+     "muscle": "upper_chest", "equipment": "dumbbell", "type": "compound", "difficulty": 3,
+     "met_value": 5.8, "gif_url": _GIF + "0314/0314.gif",
+     "instructions": ["Установи скамью на 30-45 градусов", "Гантели у верхней части груди", "Жми вверх по дуге, не сталкивая гантели"],
+     "tips": ["Держи лопатки сведёнными", "Не превращай движение в жим плечами"]},
+    {"code": "db_pullover", "name_ru": "Пуловер с гантелью", "name_en": "Dumbbell Pullover",
+     "muscle": "chest", "equipment": "dumbbell", "type": "isolation", "difficulty": 2,
+     "met_value": 4.0, "gif_url": _GIF + "0375/0375.gif",
+     "instructions": ["Ляг поперёк или вдоль скамьи", "Держи гантель над грудью двумя руками", "Опускай за голову до растяжения и верни вверх"],
+     "tips": ["Локти слегка согнуты", "Контролируй рёбра и поясницу"]},
+
+    # Dumbbells: shoulders/back/arms
+    {"code": "db_front_raise", "name_ru": "Подъёмы гантелей перед собой", "name_en": "Dumbbell Front Raise",
+     "muscle": "front_delts", "equipment": "dumbbell", "type": "isolation", "difficulty": 1,
+     "met_value": 3.5, "gif_url": _GIF + "0310/0310.gif",
+     "instructions": ["Стой ровно, гантели перед бёдрами", "Подними руки до уровня плеч", "Опусти без рывка"],
+     "tips": ["Не раскачивай корпус", "Передние дельты уже работают в жимах, не гони вес"]},
+    {"code": "db_concentration_curl", "name_ru": "Концентрированное сгибание с гантелью", "name_en": "Dumbbell Concentration Curl",
+     "muscle": "biceps", "equipment": "dumbbell", "type": "isolation", "difficulty": 2,
+     "met_value": 3.5, "gif_url": _GIF + "0146/0146.gif",
+     "instructions": ["Сядь, локоть упри во внутреннюю сторону бедра", "Сгибай гантель без движения плечом", "Медленно опускай"],
+     "tips": ["Работай чисто, без раскачки"]},
+    {"code": "db_overhead_tricep_extension", "name_ru": "Разгибание гантели из-за головы", "name_en": "Dumbbell Overhead Triceps Extension",
+     "muscle": "triceps", "equipment": "dumbbell", "type": "isolation", "difficulty": 2,
+     "met_value": 3.8, "gif_url": _GIF + "0432/0432.gif",
+     "instructions": ["Держи гантель над головой двумя руками", "Опусти за голову, локти направлены вперёд", "Разогни руки до контроля сверху"],
+     "tips": ["Не разводи локти широко"]},
+    {"code": "db_romanian_deadlift", "name_ru": "Румынская тяга с гантелями", "name_en": "Dumbbell Romanian Deadlift",
+     "muscle": "hamstrings", "equipment": "dumbbell", "type": "compound", "difficulty": 3,
+     "met_value": 5.8, "gif_url": _GIF + "0305/0305.gif",
+     "instructions": ["Гантели перед бёдрами", "Отводи таз назад, сохраняя спину ровной", "Поднимайся усилием задней поверхности бедра"],
+     "tips": ["Гантели скользят рядом с ногами"]},
+
+    # Barbell and Smith
+    {"code": "barbell_lunge", "name_ru": "Выпады со штангой", "name_en": "Barbell Lunge",
+     "muscle": "quadriceps", "equipment": "barbell", "type": "compound", "difficulty": 3,
+     "met_value": 6.0, "gif_url": _GIF + "0030/0030.gif",
+     "instructions": ["Штанга на трапециях", "Сделай шаг вперёд и опусти заднее колено", "Вернись в стойку и смени ногу"],
+     "tips": ["Колено передней ноги веди по носку"]},
+    {"code": "barbell_pause_squat", "name_ru": "Приседания со штангой с паузой", "name_en": "Paused Barbell Squat",
+     "muscle": "quadriceps", "equipment": "barbell", "type": "compound", "difficulty": 5,
+     "met_value": 7.0, "gif_url": _GIF + "0150/0150.gif",
+     "instructions": ["Опустись в присед", "Задержись внизу на 1-2 секунды без расслабления", "Встань мощно вверх"],
+     "tips": ["Пауза убирает инерцию и делает подход тяжелее"]},
+    {"code": "smith_squat", "name_ru": "Приседания в машине Смита", "name_en": "Smith Machine Squat",
+     "muscle": "quadriceps", "equipment": "smith_machine", "type": "compound", "difficulty": 3,
+     "met_value": 6.0, "gif_url": _GIF + "0751/0751.gif",
+     "instructions": ["Встань под гриф машины Смита", "Стопы чуть впереди корпуса", "Присядь до комфортной глубины и встань"],
+     "tips": ["Не блокируй колени вверху"]},
+
+    # Pull-up variations
+    {"code": "pullup_wide", "name_ru": "Подтягивания широким хватом", "name_en": "Wide-Grip Pull-Up",
+     "muscle": "lats", "equipment": "pullup_bar", "type": "compound", "difficulty": 4,
+     "met_value": 8.0, "gif_url": _GIF + "1429/1429.gif",
+     "instructions": ["Возьмись шире плеч", "Начни движение с опускания лопаток", "Подтянись грудью к перекладине"],
+     "tips": ["Не раскачивайся"]},
+    {"code": "pullup_neutral", "name_ru": "Подтягивания нейтральным хватом", "name_en": "Neutral-Grip Pull-Up",
+     "muscle": "lats", "equipment": "pullup_bar", "type": "compound", "difficulty": 3,
+     "met_value": 7.5, "gif_url": _GIF + "0651/0651.gif",
+     "instructions": ["Возьмись за параллельные рукояти", "Тяни локти вниз", "Опускайся до полного контроля"],
+     "tips": ["Самый дружелюбный вариант для плеч"]},
+
+    # Cable/machines
+    {"code": "cable_curl_low", "name_ru": "Сгибание рук в нижнем блоке", "name_en": "Low Cable Curl",
+     "muscle": "biceps", "equipment": "cable_machine", "type": "isolation", "difficulty": 1,
+     "met_value": 3.5, "gif_url": _GIF + "0136/0136.gif",
+     "instructions": ["Поставь прямую рукоять на нижний блок", "Локти держи у корпуса", "Сгибай руки без раскачки"],
+     "tips": ["Кабель держит нагрузку во всей амплитуде"]},
+    {"code": "cable_tricep_one_arm", "name_ru": "Разгибание одной рукой на блоке", "name_en": "One-Arm Cable Triceps Pushdown",
+     "muscle": "triceps", "equipment": "cable_machine", "type": "isolation", "difficulty": 1,
+     "met_value": 3.5, "gif_url": _GIF + "0200/0200.gif",
+     "instructions": ["Возьми рукоять верхнего блока одной рукой", "Локоть прижат", "Разогни руку вниз и верни медленно"],
+     "tips": ["Удобно добивать слабую сторону"]},
+    {"code": "cable_hip_adduction", "name_ru": "Приведение бедра в кроссовере", "name_en": "Cable Hip Adduction",
+     "muscle": "glutes", "equipment": "cable_machine", "type": "isolation", "difficulty": 1,
+     "met_value": 3.5, "gif_url": _GIF + "0078/0078.gif",
+     "instructions": ["Манжета на щиколотке, стой боком к блоку", "Веди ногу через корпус внутрь", "Возвращай без рывка"],
+     "tips": ["Держи корпус неподвижным"]},
+    {"code": "seated_leg_curl", "name_ru": "Сгибание ног сидя", "name_en": "Seated Leg Curl",
+     "muscle": "hamstrings", "equipment": "leg_curl", "type": "isolation", "difficulty": 1,
+     "met_value": 4.0, "gif_url": _GIF + "0599/0599.gif",
+     "instructions": ["Сядь в тренажёр", "Зафиксируй бедра валиком", "Согни ноги вниз и верни медленно"],
+     "tips": ["Не отрывай таз от сиденья"]},
+
+    # Bodyweight fallbacks: allowed, but generator deprioritizes them when gym gear exists.
+    {"code": "pushup_classic", "name_ru": "Отжимания классические", "name_en": "Classic Push-Up",
+     "muscle": "chest", "equipment": None, "eq_cat": "none", "type": "compound", "difficulty": 2,
+     "met_value": 4.0, "gif_url": _GIF + "0662/0662.gif",
+     "instructions": ["Упор лёжа", "Опускай грудь к полу", "Выжимайся вверх без провисания"],
+     "tips": ["Корпус держи одной линией"]},
+    {"code": "pushup_decline", "name_ru": "Отжимания с ногами на возвышении", "name_en": "Decline Push-Up",
+     "muscle": "upper_chest", "equipment": None, "eq_cat": "none", "type": "compound", "difficulty": 3,
+     "met_value": 4.5, "gif_url": _GIF + "1270/1270.gif",
+     "instructions": ["Поставь ноги на скамью", "Опускайся с контролем", "Жми вверх, сохраняя корпус прямым"],
+     "tips": ["Сильнее нагружает верх груди и плечи"]},
+    {"code": "pushup_incline", "name_ru": "Отжимания с руками на возвышении", "name_en": "Incline Push-Up",
+     "muscle": "chest", "equipment": None, "eq_cat": "none", "type": "compound", "difficulty": 1,
+     "met_value": 3.5, "gif_url": _GIF + "0492/0492.gif",
+     "instructions": ["Поставь руки на скамью", "Опускай грудь к опоре", "Выжимайся вверх"],
+     "tips": ["Хороший лёгкий вариант"]},
+]
