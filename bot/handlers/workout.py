@@ -8,6 +8,7 @@ from datetime import datetime, date
 
 from bot.states.states import WorkoutStates
 from bot.keyboards.main_menu import main_menu_keyboard
+from bot.utils.module_visuals import send_module_visual
 from models.user import User
 from models.profile import Profile
 from models.workout import WorkoutSession, SessionExercise, ExerciseSet, SessionStatus, DifficultyModifier
@@ -85,10 +86,7 @@ async def start_workout(event, state: FSMContext, user: User, session: AsyncSess
         return
     await state.set_state(WorkoutStates.choosing_modifier)
     text = "🏋️ <b>Начинаем тренировку!</b>\n\nКак себя чувствуешь сегодня?"
-    if isinstance(event, CallbackQuery):
-        await msg.edit_text(text, reply_markup=modifier_kb(), parse_mode="HTML")
-    else:
-        await msg.answer(text, reply_markup=modifier_kb(), parse_mode="HTML")
+    await send_module_visual(event, "workout", text, reply_markup=modifier_kb())
 
 
 @router.callback_query(F.data.startswith("mod:"))

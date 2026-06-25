@@ -9,6 +9,7 @@ from bot.states.states import OnboardingStates
 from models.calibration import CalibrationAnswer
 from models.user import User
 from bot.keyboards.main_menu import main_menu_keyboard
+from bot.utils.module_visuals import send_module_visual
 
 router = Router()
 
@@ -56,11 +57,7 @@ async def start_calibration(event, state: FSMContext, user: User, session: Async
     
     text = f"📋 <b>Калибровка — вопрос 1 из {len(CALIBRATION_QUESTIONS)}</b>\n\n{q['question']}"
     
-    if is_callback:
-        await event.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
-        await event.answer()
-    else:
-        await event.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
+    await send_module_visual(event, "calibration", text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
 
 
 @router.callback_query(F.data.startswith("cal:a:"))

@@ -11,6 +11,7 @@ from models.body_measurement import BodyMeasurement
 from models.personal_record import PersonalRecord
 from core.db import AsyncSessionLocal
 from bot.keyboards.main_menu import main_menu_keyboard
+from bot.utils.module_visuals import send_module_visual
 
 router = Router()
 
@@ -27,10 +28,9 @@ async def settings_menu(msg_or_cb, user: User, **kwargs):
     kb.adjust(1)
     text = "⚙️ <b>Настройки</b>\n\nВыберите действие:"
     if isinstance(msg_or_cb, CallbackQuery):
-        await target.edit_text(text, reply_markup=kb.as_markup(), parse_mode="HTML")
-        await msg_or_cb.answer()
+        await send_module_visual(msg_or_cb, "settings", text, reply_markup=kb.as_markup())
     else:
-        await target.answer(text, reply_markup=kb.as_markup(), parse_mode="HTML")
+        await send_module_visual(msg_or_cb, "settings", text, reply_markup=kb.as_markup())
 
 
 @router.callback_query(F.data == "settings:language")

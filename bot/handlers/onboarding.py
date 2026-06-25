@@ -108,11 +108,16 @@ async def cmd_start(message: Message, state: FSMContext, user: User, session: As
     profile = result.scalar_one_or_none()
     if profile and profile.calibrated_at:
         await message.answer(
-            f"👋 С возвращением, {message.from_user.first_name}!\n\n"
-            "Выбери действие:",
-            reply_markup=main_menu_keyboard()
+            f"⚡ <b>GYM Control Center</b>\n\n"
+            f"С возвращением, <b>{message.from_user.first_name}</b>.\n"
+            "Твоя тренировочная система готова: можно начать занятие, проверить прогресс, "
+            "открыть достижения, настроить расписание или обновить инвентарь.\n\n"
+            "Выбери модуль ниже — я подстрою следующий шаг под твой профиль.",
+            reply_markup=main_menu_keyboard(),
+            parse_mode="HTML",
         )
         return
+
     await state.set_state(OnboardingStates.language)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="onboarding_lang:ru"),

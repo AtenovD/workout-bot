@@ -11,7 +11,12 @@ router = Router()
 @router.callback_query(F.data == "menu:back")
 @router.callback_query(F.data == "menu:main")
 async def main_menu(event, **kwargs):
-    text = "🏠 <b>Главное меню</b>\n\nВыбери действие:"
+    text = (
+        "⚡ <b>GYM Control Center</b>\n\n"
+        "Здесь собраны все модули твоей системы тренировок: старт занятия, "
+        "прогресс, достижения, расписание, челленджи, инвентарь и настройки.\n\n"
+        "Выбери модуль ниже — я открою нужный экран и поведу дальше."
+    )
     if isinstance(event, CallbackQuery):
         await event.message.edit_text(text, reply_markup=main_menu_keyboard(), parse_mode="HTML")
         await event.answer()

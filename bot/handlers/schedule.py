@@ -9,6 +9,7 @@ from datetime import time
 from models.user import User
 from models.schedule import Schedule, ScheduleMode
 from bot.states.states import ScheduleStates
+from bot.utils.module_visuals import send_module_visual
 
 router = Router()
 
@@ -61,11 +62,7 @@ async def show_schedule(event, user: User, session: AsyncSession, **kwargs):
         if sched.reminder_enabled and sched.reminder_time:
             text += f"\nВремя: {sched.reminder_time.strftime('%H:%M')}"
 
-    if isinstance(event, CallbackQuery):
-        await msg.edit_text(text, reply_markup=schedule_menu_kb(sched), parse_mode="HTML")
-        await event.answer()
-    else:
-        await msg.answer(text, reply_markup=schedule_menu_kb(sched), parse_mode="HTML")
+    await send_module_visual(event, "schedule", text, reply_markup=schedule_menu_kb(sched))
 
 
 @router.callback_query(F.data.startswith("sched:mode:"))

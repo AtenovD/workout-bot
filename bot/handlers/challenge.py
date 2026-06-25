@@ -6,6 +6,7 @@ from sqlalchemy import select, desc, func
 from datetime import datetime, date
 
 from bot.keyboards.main_menu import main_menu_keyboard
+from bot.utils.module_visuals import send_module_visual
 from models.user import User
 from models.challenge import UserChallenge
 from models.gamification import UserStats
@@ -27,13 +28,14 @@ async def show_challenge(message: Message, user: User, session: AsyncSession):
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔥 Присоединиться к челленджу", callback_data="challenge:join")]
         ])
-        await message.answer(
+        await send_module_visual(
+            message,
+            "challenge",
             "🏆 <b>30-дневный челлендж</b>\n\n"
             "Тренируйся каждый день в течение 30 дней и получи особую награду!\n\n"
             f"🎁 Награда: <b>{CHALLENGE_XP_REWARD} XP</b> + уникальный титул\n"
             "📋 Правила: минимум 1 завершённая тренировка в день",
             reply_markup=kb,
-            parse_mode="HTML"
         )
         return
 
@@ -48,14 +50,15 @@ async def show_challenge(message: Message, user: User, session: AsyncSession):
     else:
         status = f"🔥 День <b>{challenge.current_day}</b> из <b>{CHALLENGE_DAYS}</b>"
 
-    await message.answer(
+    await send_module_visual(
+        message,
+        "challenge",
         f"🏆 <b>30-дневный челлендж</b>\n\n"
         f"{status}\n"
         f"[{bar}] {progress_pct}%\n\n"
         f"📅 Дней тренировок: <b>{done}</b>\n"
         f"🎁 Награда: <b>{CHALLENGE_XP_REWARD} XP</b>\n\n"
         f"{'🥳 Поздравляем с завершением!' if challenge.completed else 'Продолжай в том же духе! 💪'}",
-        parse_mode="HTML"
     )
 
 
@@ -97,7 +100,7 @@ async def challenge_from_menu(callback: CallbackQuery, user: User, session: Asyn
             [InlineKeyboardButton(text="🔥 Присоединиться", callback_data="challenge:join")],
             [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:back")],
         ])
-        await callback.message.edit_text(
+        await send_module_visual(callback, "challenge",
             "🏆 <b>30-дневный челлендж</b>\n\n"
             "Тренируйся 30 дней подряд и получи:\n"
             f"🎁 <b>{CHALLENGE_XP_REWARD} XP</b>\n"
@@ -122,7 +125,7 @@ async def challenge_from_menu(callback: CallbackQuery, user: User, session: Asyn
         [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:back")],
     ])
 
-    await callback.message.edit_text(
+    await send_module_visual(callback, "challenge",
         f"🏆 <b>30-дневный челлендж</b>\n\n"
         f"{status}\n"
         f"[{bar}] {progress_pct}%\n\n"

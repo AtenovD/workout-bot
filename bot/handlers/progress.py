@@ -15,6 +15,7 @@ from models.body_measurement import BodyMeasurement
 from services.gamification import get_title, get_xp_for_next_level
 from services.stats_chart import generate_volume_chart, generate_weight_chart
 from bot.keyboards.main_menu import main_menu_keyboard
+from bot.utils.module_visuals import send_module_visual
 
 router = Router()
 
@@ -78,11 +79,7 @@ async def show_progress(event, user: User, session: AsyncSession, **kwargs):
         f"{weight_info}"
     )
 
-    if isinstance(event, CallbackQuery):
-        await msg.edit_text(text, reply_markup=progress_menu_kb(), parse_mode="HTML")
-        await event.answer()
-    else:
-        await msg.answer(text, reply_markup=progress_menu_kb(), parse_mode="HTML")
+    await send_module_visual(event, "progress", text, reply_markup=progress_menu_kb())
 
 
 @router.callback_query(F.data == "prog:vol_chart")

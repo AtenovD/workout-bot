@@ -10,6 +10,7 @@ from models.personal_record import PersonalRecord
 from models.exercise import Exercise
 from models.workout import WorkoutSession, SessionStatus
 from bot.keyboards.main_menu import main_menu_keyboard
+from bot.utils.module_visuals import send_module_visual
 
 router = Router()
 
@@ -101,14 +102,14 @@ async def show_achievements(callback: CallbackQuery, user: User, session: AsyncS
     user_ach_ids = set(user_ach_res.scalars().all())
     
     if not achievements:
-        await callback.message.edit_text(
+        await send_module_visual(
+            callback,
+            "achievements",
             "🏆 <b>Достижения</b>\n\nПока нет достижений в базе.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="◀️ Назад", callback_data="menu:stats")]
             ]),
-            parse_mode="HTML"
         )
-        await callback.answer()
         return
     
     cat_labels = {AchievementCategory.consistency: "☀️ Регулярность",
@@ -127,14 +128,14 @@ async def show_achievements(callback: CallbackQuery, user: User, session: AsyncS
         tier_icon = TIER_ICONS.get(ach.tier, "")
         text += f"  {icon} {tier_icon} <b>{ach.name}</b> — {ach.description or ''}\n"
     
-    await callback.message.edit_text(
+    await send_module_visual(
+        callback,
+        "achievements",
         text,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="◀️ Назад к статистике", callback_data="menu:stats")]
         ]),
-        parse_mode="HTML"
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data == "gam:records")

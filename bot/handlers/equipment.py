@@ -15,6 +15,7 @@ from sqlalchemy import select
 from models.user import User
 from models.exercise import Equipment, EquipmentCategory
 from models.user_equipment import UserEquipment
+from bot.utils.module_visuals import send_module_visual
 
 router = Router()
 
@@ -83,13 +84,13 @@ async def _build_category_items_kb(
 async def cb_equipment(callback: CallbackQuery, session: AsyncSession, state: FSMContext, user: User, **kwargs):
     """Entry via main menu button — step 1: pick category."""
     await state.set_state(EquipmentStates.picking_category)
-    await callback.message.edit_text(
+    await send_module_visual(
+        callback,
+        "inventory",
         "🏋️ <b>Выбери категорию инвентаря</b>:\n\n"
         "Сначала выбери тип, затем конкретные снаряды.",
         reply_markup=_build_category_kb(),
-        parse_mode="HTML",
     )
-    await callback.answer()
 
 
 @router.message(Command("equipment"))
@@ -101,11 +102,12 @@ async def cmd_equipment(message: Message, session: AsyncSession, state: FSMConte
         return
 
     await state.set_state(EquipmentStates.picking_category)
-    await message.answer(
+    await send_module_visual(
+        message,
+        "inventory",
         "🏋️ <b>Выбери категорию инвентаря</b>:\n\n"
         "Сначала выбери тип, затем отметь конкретное оборудование, которое у тебя есть.",
         reply_markup=_build_category_kb(),
-        parse_mode="HTML",
     )
 
 
