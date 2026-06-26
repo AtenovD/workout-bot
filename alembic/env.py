@@ -33,11 +33,14 @@ def run_migrations_offline():
 async def run_migrations_online():
     engine = create_async_engine(DB_URL)
     async with engine.connect() as conn:
-        await conn.run_sync(lambda c: context.configure(
-            connection=c, target_metadata=target_metadata
-        ))
-        await conn.run_sync(lambda c: context.run_migrations())
+        await conn.run_sync(do_run_migrations)
     await engine.dispose()
+
+
+def do_run_migrations(connection):
+    context.configure(connection=connection, target_metadata=target_metadata)
+    with context.begin_transaction():
+        context.run_migrations()
 
 
 if context.is_offline_mode():
