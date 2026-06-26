@@ -11,10 +11,10 @@ from bot.keyboards.main_menu import main_menu_keyboard
 from bot.utils.module_visuals import send_module_visual
 from models.user import User
 from models.profile import Profile
-from models.workout import WorkoutSession, SessionExercise, ExerciseSet, SessionStatus, DifficultyModifier
+from models.workout import WorkoutSession, SessionExercise, ExerciseSet, SessionStatus, DifficultyModifier, WorkoutReview
 from models.gamification import UserStats
 from models.challenge import UserChallenge
-from models.exercise import Exercise
+from models.exercise import Exercise, MuscleGroup
 from services.gamification import calculate_xp, get_level_from_xp, get_title
 from services.calories import calculate_calories_burned, DEFAULT_MET
 from services.pr_detection import detect_prs
@@ -67,6 +67,11 @@ def exercise_technique_url(ex):
     return getattr(ex, "gif_url", None) or getattr(ex, "photo_url", None) or getattr(ex, "video_url", None)
 
 
+async def _muscle_names_by_id(session: AsyncSession) -> dict[int, str]:
+    result = await session.execute(select(MuscleGroup.id, MuscleGroup.name_ru))
+    return {mg_id: name for mg_id, name in result.all()}
+
+
 def _current_warmup_target(se, ex, modifier, warmup_index):
     targets = warmup_targets_for(se, ex, modifier)
     if not targets:
@@ -92,6 +97,32 @@ def exercise_done_kb(next_se_id):
     if next_se_id:
         return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="➡️ Следующее упражнение", callback_data=f"ex:next:{next_se_id}")]])
     return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏁 Завершить тренировку", callback_data="wk:finish")]])
+
+
+def review_intensity_kb(session_id: int):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔥 Хочу сложнее", callback_data=f"review:intensity:{session_id}:harder")],
+        [InlineKeyboardButton(text="✅ Нормально", callback_data=f"review:intensity:{session_id}:ok")],
+        [InlineKeyboardButton(text="🧊 Нужно легче", callback_data=f"review:intensity:{session_id}:easier")],
+    ])
+
+
+def review_pain_kb(session_id: int, intensity: str):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Ничего не болит", callback_data=f"review:pain:{session_id}:{intensity}:none")],
+        [InlineKeyboardButton(text="⚠️ Есть дискомфорт", callback_data=f"review:pain:{session_id}:{intensity}:discomfort")],
+        [InlineKeyboardButton(text="🛑 Есть боль", callback_data=f"review:pain:{session_id}:{intensity}:pain")],
+    ])
+
+
+async def _skipped_exercises(session: AsyncSession, session_id: int):
+    result = await session.execute(
+        select(SessionExercise, Exercise)
+        .join(Exercise, SessionExercise.exercise_id == Exercise.id)
+        .where(SessionExercise.session_id == session_id, SessionExercise.was_skipped == True)
+        .order_by(asc(SessionExercise.order_index))
+    )
+    return result.all()
 
 
 @router.message(Command("workout"))
@@ -137,10 +168,19 @@ async def choose_modifier(callback: CallbackQuery, state: FSMContext, user: User
     await session.commit()
     await session.refresh(ws)
     total_time = sum(se.target_sets * (45 + se.rest_seconds) for se, _ in exercises) // 60 + 10
+    muscle_names = await _muscle_names_by_id(session)
     await state.update_data(workout_session_id=ws.id)
     await state.set_state(WorkoutStates.overview)
     await safe_edit_text(callback.message,
-        format_workout_overview(exercises, modifier, profile.goal, total_time),
+        format_workout_overview(
+            exercises,
+            modifier,
+            profile.goal,
+            total_time,
+            profile.training_structure,
+            profile.split_type,
+            muscle_names,
+        ),
         reply_markup=overview_kb(ws.id), parse_mode="HTML",
     )
 
@@ -188,8 +228,9 @@ async def begin_workout(callback: CallbackQuery, state: FSMContext, session: Asy
             await callback.message.answer_photo(ex.photo_url, caption=f"<b>{ex.name_ru}</b>", parse_mode="HTML")
         except Exception:
             pass
+    muscle_names = await _muscle_names_by_id(session)
     await safe_edit_text(callback.message,
-        format_exercise_card(first_se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1),
+        format_exercise_card(first_se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names),
         reply_markup=set_log_kb(first_se.id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup"),
         parse_mode="HTML"
     )
@@ -223,10 +264,11 @@ async def set_done(callback: CallbackQuery, state: FSMContext, session: AsyncSes
         if warmup_index < len(warmups):
             next_index = warmup_index + 1
             next_target = warmups[next_index - 1]
+            muscle_names = await _muscle_names_by_id(session)
             await state.update_data(warmup_index=next_index, current_reps=None, current_weight=None)
             await safe_edit_text(
                 callback.message,
-                format_exercise_card(se, ex, 1, modifier, is_warmup=True, warmup_index=next_index),
+                format_exercise_card(se, ex, 1, modifier, is_warmup=True, warmup_index=next_index, muscle_names_by_id=muscle_names),
                 reply_markup=set_log_kb(
                     se_id, next_index, next_target.reps, next_target.weight_kg,
                     exercise_technique_url(ex), is_warmup=True,
@@ -236,10 +278,11 @@ async def set_done(callback: CallbackQuery, state: FSMContext, session: AsyncSes
             await callback.answer(f"✅ Разминка {warmup_index} засчитана.")
             return
 
+        muscle_names = await _muscle_names_by_id(session)
         await state.update_data(set_phase="work", current_set=1, current_reps=None, current_weight=None)
         await safe_edit_text(
             callback.message,
-            format_exercise_card(se, ex, 1, modifier),
+            format_exercise_card(se, ex, 1, modifier, muscle_names_by_id=muscle_names),
             reply_markup=set_log_kb(se_id, 1, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex)),
             parse_mode="HTML",
         )
@@ -310,8 +353,9 @@ async def rest_done(callback: CallbackQuery, state: FSMContext, session: AsyncSe
     await state.update_data(current_set=next_set, set_phase="work")
     data = await state.get_data()
     modifier = data.get("workout_modifier", "normal")
+    muscle_names = await _muscle_names_by_id(session)
     await safe_edit_text(callback.message,
-        format_exercise_card(se, ex, next_set, modifier),
+        format_exercise_card(se, ex, next_set, modifier, muscle_names_by_id=muscle_names),
         reply_markup=set_log_kb(se_id, next_set, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex)),
         parse_mode="HTML"
     )
@@ -335,8 +379,9 @@ async def next_exercise(callback: CallbackQuery, state: FSMContext, session: Asy
         current_reps=None,
         current_weight=None,
     )
+    muscle_names = await _muscle_names_by_id(session)
     await callback.message.answer(
-        format_exercise_card(se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1),
+        format_exercise_card(se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names),
         reply_markup=set_log_kb(se_id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup"),
         parse_mode="HTML"
     )
@@ -376,8 +421,9 @@ async def resume_workout(callback, state, session):
         current_reps=None,
         current_weight=None,
     )
+    muscle_names = await _muscle_names_by_id(session)
     await safe_edit_text(callback.message,
-        "▶️ " + format_exercise_card(se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1),
+        "▶️ " + format_exercise_card(se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names),
         reply_markup=set_log_kb(se.id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup"),
         parse_mode="HTML"
     )
@@ -476,9 +522,10 @@ async def do_replace_exercise(callback, state, session):
     visible_set = warmup_index if phase == "warmup" else cs
     reps, weight = _default_set_values(se, new_ex, modifier, phase, warmup_index)
     await state.update_data(current_reps=None, current_weight=None)
+    muscle_names = await _muscle_names_by_id(session)
     await safe_edit_text(callback.message,
         "✅ Заменено\n" + format_exercise_card(
-            se, new_ex, cs, modifier, is_warmup=phase == "warmup", warmup_index=warmup_index,
+            se, new_ex, cs, modifier, is_warmup=phase == "warmup", warmup_index=warmup_index, muscle_names_by_id=muscle_names,
         ),
         reply_markup=set_log_kb(
             se_id, visible_set, reps, weight, exercise_technique_url(new_ex), is_warmup=phase == "warmup",
@@ -503,8 +550,9 @@ async def cancel_replace(callback, state, session):
     reps = data.get("current_reps") or default_reps
     weight = data.get("current_weight") if data.get("current_weight") is not None else default_weight
     weight = float(weight or 0.0)
+    muscle_names = await _muscle_names_by_id(session)
     await safe_edit_text(callback.message,
-        format_exercise_card(se, ex, cs, modifier, is_warmup=phase == "warmup", warmup_index=warmup_index),
+        format_exercise_card(se, ex, cs, modifier, is_warmup=phase == "warmup", warmup_index=warmup_index, muscle_names_by_id=muscle_names),
         reply_markup=set_log_kb(se_id, visible_set, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup"),
         parse_mode="HTML"
     )
@@ -636,6 +684,15 @@ async def finish_workout(callback: CallbackQuery, state: FSMContext, user: User,
         summary_text += "\n\n" + "\n".join(plateau_notices)
 
     await callback.message.answer(summary_text, reply_markup=main_menu_keyboard(), parse_mode="HTML")
+    skipped = await _skipped_exercises(session, session_id)
+    skipped_text = "скипов не было" if not skipped else "скипнул: " + ", ".join(ex.name_ru for _, ex in skipped)
+    await callback.message.answer(
+        "🧠 <b>Короткое ревью</b>\n"
+        f"Я вижу, что {skipped_text}.\n\n"
+        "Как ощущалась нагрузка? Это пойдёт в расчёт следующей тренировки.",
+        reply_markup=review_intensity_kb(session_id),
+        parse_mode="HTML",
+    )
     await state.clear()
 
 
@@ -644,6 +701,7 @@ async def skip_exercise(callback: CallbackQuery, state: FSMContext, session: Asy
     se_id = int(callback.data.split(":")[2])
     se = await session.get(SessionExercise, se_id)
     se.is_completed = True
+    se.was_skipped = True
     await session.commit()
     next_res = await session.execute(
         select(SessionExercise).where(SessionExercise.session_id == se.session_id,
@@ -653,3 +711,60 @@ async def skip_exercise(callback: CallbackQuery, state: FSMContext, session: Asy
     next_se = next_res.scalar_one_or_none()
     await callback.answer("Пропущено")
     await callback.message.edit_reply_markup(reply_markup=exercise_done_kb(next_se.id if next_se else None))
+
+
+@router.callback_query(F.data.startswith("review:intensity:"))
+async def review_intensity(callback: CallbackQuery):
+    _, _, session_id, intensity = callback.data.split(":")
+    labels = {
+        "harder": "Хочешь сложнее — понял.",
+        "ok": "Нагрузка нормальная — отлично.",
+        "easier": "Нужно легче — учту.",
+    }
+    await safe_edit_text(
+        callback.message,
+        "🧠 <b>Короткое ревью</b>\n"
+        f"{labels.get(intensity, 'Нагрузку учту')}\n\n"
+        "По самочувствию: есть боль или неприятный дискомфорт?",
+        reply_markup=review_pain_kb(int(session_id), intensity),
+        parse_mode="HTML",
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("review:pain:"))
+async def review_pain(callback: CallbackQuery, user: User, session: AsyncSession):
+    _, _, session_id, intensity, pain = callback.data.split(":")
+    session_id = int(session_id)
+    skipped = await _skipped_exercises(session, session_id)
+    skipped_ids = [se.exercise_id for se, _ in skipped]
+    skipped_names = [ex.name_ru for _, ex in skipped]
+
+    ws = await session.get(WorkoutSession, session_id)
+    if ws:
+        ws.rpe_session = {"harder": 6, "ok": 8, "easier": 9}.get(intensity)
+
+    session.add(WorkoutReview(
+        workout_session_id=session_id,
+        user_id=user.id,
+        intensity_feedback=intensity,
+        pain_feedback=pain,
+        skipped_exercise_ids=skipped_ids,
+        skipped_exercise_names=skipped_names,
+    ))
+    await session.commit()
+
+    pain_text = {
+        "none": "Без боли — можно продолжать прогрессию.",
+        "discomfort": "Дискомфорт записал, следующую тренировку сделаю осторожнее.",
+        "pain": "Боль записал, следующую тренировку заметно разгружу.",
+    }.get(pain, "Самочувствие записал.")
+    await safe_edit_text(
+        callback.message,
+        "✅ <b>Ревью сохранено</b>\n"
+        f"{pain_text}\n"
+        "На следующей тренировке бот учтёт нагрузку, скипы и самочувствие.",
+        reply_markup=main_menu_keyboard(),
+        parse_mode="HTML",
+    )
+    await callback.answer("Сохранено")

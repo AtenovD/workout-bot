@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Integer, String, Enum, Boolean, ForeignKey, DateTime, Date, Numeric, func
+from sqlalchemy import BigInteger, Integer, String, Enum, Boolean, ForeignKey, DateTime, Date, Numeric, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 from core.db import Base
@@ -59,6 +59,7 @@ class SessionExercise(Base):
     target_weight_kg: Mapped[float | None] = mapped_column(Numeric(6, 2))
     rest_seconds: Mapped[int] = mapped_column(Integer, default=90)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    was_skipped: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class ExerciseSet(Base):
     __tablename__ = "exercise_sets"
@@ -70,3 +71,16 @@ class ExerciseSet(Base):
     rpe: Mapped[int | None] = mapped_column(Integer)
     is_warmup: Mapped[bool] = mapped_column(Boolean, default=False)
     completed_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class WorkoutReview(Base):
+    __tablename__ = "workout_reviews"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    workout_session_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workout_sessions.id"), index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True)
+    intensity_feedback: Mapped[str | None] = mapped_column(String(16))
+    pain_feedback: Mapped[str | None] = mapped_column(String(16))
+    skipped_exercise_ids: Mapped[list | None] = mapped_column(JSON)
+    skipped_exercise_names: Mapped[list | None] = mapped_column(JSON)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())

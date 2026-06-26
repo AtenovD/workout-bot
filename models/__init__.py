@@ -1,7 +1,7 @@
 from models.user import User
 from models.profile import Profile
 from models.exercise import Exercise, MuscleGroup, Equipment, EquipmentCategory, ExerciseType
-from models.workout import WorkoutPlan, WorkoutSession, SessionExercise, ExerciseSet
+from models.workout import WorkoutPlan, WorkoutSession, SessionExercise, ExerciseSet, WorkoutReview
 from models.schedule import Schedule
 from models.challenge import UserChallenge
 from models.gamification import UserStats, Achievement, UserAchievement
@@ -25,6 +25,7 @@ __all__ = [
     "WorkoutSession",
     "SessionExercise",
     "ExerciseSet",
+    "WorkoutReview",
     "Schedule",
     "UserChallenge",
     "UserStats",

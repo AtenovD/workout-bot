@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from models.exercise import Exercise, ExerciseType, EquipmentCategory
-from models.profile import Goal
+from models.profile import Goal, SplitType, TrainingStructure
 from models.workout import SessionExercise
 
 
@@ -38,6 +38,17 @@ GOAL_TITLES = {
 }
 
 BLOCK_ORDER = ["Силовой блок", "Объёмный блок", "Изоляция", "Кор и контроль"]
+
+STRUCTURE_TITLES = {
+    TrainingStructure.fullbody: "Фулбади",
+    TrainingStructure.split: "Сплит",
+}
+
+SPLIT_TITLES = {
+    SplitType.upper_lower: "Верх/низ",
+    SplitType.push_pull_legs: "Push/Pull/Legs",
+    SplitType.bro_split: "Классический сплит",
+}
 
 
 def _is_weighted(ex: Exercise) -> bool:
@@ -120,6 +131,28 @@ def _format_warmup_summary(targets: list[SetTarget]) -> str:
     return ", ".join(f"{target.reps}×{_format_weight(target.weight_kg)}" for target in targets)
 
 
+def _training_format_title(
+    training_structure: TrainingStructure | str | None,
+    split_type: SplitType | str | None,
+) -> str:
+    if isinstance(training_structure, str):
+        training_structure = TrainingStructure(training_structure) if training_structure in TrainingStructure._value2member_map_ else None
+    if isinstance(split_type, str):
+        split_type = SplitType(split_type) if split_type in SplitType._value2member_map_ else None
+
+    if training_structure == TrainingStructure.fullbody:
+        return "Фулбади"
+    if training_structure == TrainingStructure.split:
+        return f"Сплит · {SPLIT_TITLES.get(split_type, 'по группам мышц')}"
+    return "Персональный план"
+
+
+def _muscle_label(ex: Exercise, muscle_names_by_id: dict[int, str] | None) -> str:
+    if not muscle_names_by_id or not ex.primary_muscle_group_id:
+        return "группа не указана"
+    return muscle_names_by_id.get(ex.primary_muscle_group_id, "группа не указана")
+
+
 def structure_workout(
     exercises: list[tuple[SessionExercise, Exercise]],
     modifier: str,
@@ -141,6 +174,9 @@ def format_workout_overview(
     modifier: str,
     goal: Goal | None,
     total_time_min: int,
+    training_structure: TrainingStructure | str | None = None,
+    split_type: SplitType | str | None = None,
+    muscle_names_by_id: dict[int, str] | None = None,
 ) -> str:
     structured = structure_workout(exercises, modifier)
     warmup_items = [item for item in structured if item.warmups]
@@ -148,6 +184,7 @@ def format_workout_overview(
     lines = [
         f"🏋️ <b>{MODIFIER_TITLES.get(modifier, '⚪ Рабочая')} тренировка</b>",
         f"Цель: <b>{GOAL_TITLES.get(goal, 'силовая работа')}</b> · Время: <b>~{total_time_min} мин</b>",
+        f"Формат: <b>{_training_format_title(training_structure, split_type)}</b>",
         "",
         "<b>Перед рабочими весами</b>",
         "1. 5-7 минут лёгкого кардио: дорожка, вело или эллипс.",
@@ -175,7 +212,8 @@ def format_workout_overview(
             continue
         lines.append(f"<b>{block}</b>")
         for item in items:
-            lines.append(f"• {item.exercise.name_ru}: {_format_work_sets(item.session_exercise)}")
+            muscle = _muscle_label(item.exercise, muscle_names_by_id)
+            lines.append(f"• {item.exercise.name_ru} · <i>{muscle}</i>: {_format_work_sets(item.session_exercise)}")
         lines.append("")
 
     lines.append("Ориентир: последний рабочий повтор тяжёлый, но контролируемый. Если вес не твой — жми «Тяжело» или «Легко» прямо в подходе.")
@@ -189,6 +227,7 @@ def format_exercise_card(
     modifier: str,
     is_warmup: bool = False,
     warmup_index: int = 1,
+    muscle_names_by_id: dict[int, str] | None = None,
 ) -> str:
     index = int(se.order_index or 0) + 1
     structured = StructuredExercise(
@@ -203,7 +242,7 @@ def format_exercise_card(
         target = structured.warmups[min(max(warmup_index, 1), len(structured.warmups)) - 1]
         return (
             f"<b>{ex.name_ru}</b>\n"
-            f"{structured.block} · разминка перед рабочими весами\n"
+            f"{structured.block} · {_muscle_label(ex, muscle_names_by_id)} · разминка перед рабочими весами\n"
             f"Разминочный подход {target.set_number} из {len(structured.warmups)} · "
             f"{target.reps} повт. · {_format_weight(target.weight_kg)}\n"
             f"Темп спокойный: разогреть движение, не утомиться."
@@ -213,7 +252,7 @@ def format_exercise_card(
     weight_text = f" · {_format_weight(weight)}" if weight > 0 else ""
     return (
         f"<b>{ex.name_ru}</b>\n"
-        f"{structured.block} · {structured.effort}\n"
+        f"{structured.block} · {_muscle_label(ex, muscle_names_by_id)} · {structured.effort}\n"
         f"Рабочий подход {current_set} из {se.target_sets} · "
         f"{se.target_reps} повт.{weight_text}"
     )

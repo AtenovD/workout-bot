@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from models.exercise import EquipmentCategory, ExerciseType
 from models.profile import Goal
 from services.workout_generator import (
+    _combine_review_adjustments,
     _exercise_score,
     _is_equipment_available,
     _rank_pool,
@@ -93,3 +94,21 @@ def test_bodyweight_equipment_keeps_zero_starting_weight():
 
     assert _starting_weight_for(pullup, {5: "pullup_bar"}) == 0.0
     assert _starting_weight_for(dumbbell, {10: "dumbbell"}) > 0.0
+
+
+def test_review_feedback_adjusts_future_workout_load():
+    review = SimpleNamespace(intensity_feedback="easier", pain_feedback="discomfort")
+
+    adjustment = _combine_review_adjustments(review)
+
+    assert adjustment["sets_delta"] == -2
+    assert round(adjustment["weight_factor"], 3) == 0.81
+    assert round(adjustment["rest_factor"], 3) == 1.265
+
+
+def test_no_review_keeps_neutral_workout_load():
+    assert _combine_review_adjustments(None) == {
+        "sets_delta": 0,
+        "weight_factor": 1.0,
+        "rest_factor": 1.0,
+    }

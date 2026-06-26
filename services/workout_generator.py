@@ -7,7 +7,7 @@ from sqlalchemy import select, and_, desc, or_
 
 from models.profile import Profile, Goal, TrainingStructure
 from models.exercise import Exercise, Equipment, EquipmentCategory, ExerciseType, MuscleGroup
-from models.workout import SessionExercise, WorkoutSession, ExerciseSet
+from models.workout import SessionExercise, WorkoutSession, ExerciseSet, WorkoutReview
 
 FULLBODY_GROUPS = ["chest", "back", "legs", "shoulders", "biceps", "triceps", "core"]
 
@@ -39,6 +39,18 @@ MODIFIER_DELTA = {
     "light": {"sets": -1, "weight_pct": 0.85, "rest_factor": 1.3},
     "normal": {"sets": 0,  "weight_pct": 1.0,  "rest_factor": 1.0},
     "hard":  {"sets": 1,  "weight_pct": 1.15, "rest_factor": 1.25},
+}
+
+REVIEW_ADJUSTMENTS = {
+    "harder": {"sets_delta": 0, "weight_factor": 1.05, "rest_factor": 1.0},
+    "ok": {"sets_delta": 0, "weight_factor": 1.0, "rest_factor": 1.0},
+    "easier": {"sets_delta": -1, "weight_factor": 0.9, "rest_factor": 1.1},
+}
+
+PAIN_ADJUSTMENTS = {
+    "none": {"sets_delta": 0, "weight_factor": 1.0, "rest_factor": 1.0},
+    "discomfort": {"sets_delta": -1, "weight_factor": 0.9, "rest_factor": 1.15},
+    "pain": {"sets_delta": -1, "weight_factor": 0.8, "rest_factor": 1.25},
 }
 
 HEALTH_EXCLUSIONS = {
@@ -196,6 +208,31 @@ async def _get_last_weight(session: AsyncSession, user_id: int, exercise_id: int
     return float(row) if row else None
 
 
+async def _get_last_review(session: AsyncSession, user_id: int) -> WorkoutReview | None:
+    result = await session.execute(
+        select(WorkoutReview)
+        .where(WorkoutReview.user_id == user_id)
+        .order_by(desc(WorkoutReview.created_at))
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+def _combine_review_adjustments(review: WorkoutReview | None) -> dict[str, float | int]:
+    adjustment = {"sets_delta": 0, "weight_factor": 1.0, "rest_factor": 1.0}
+    if not review:
+        return adjustment
+
+    for source in (
+        REVIEW_ADJUSTMENTS.get(review.intensity_feedback or "", {}),
+        PAIN_ADJUSTMENTS.get(review.pain_feedback or "", {}),
+    ):
+        adjustment["sets_delta"] += int(source.get("sets_delta", 0))
+        adjustment["weight_factor"] *= float(source.get("weight_factor", 1.0))
+        adjustment["rest_factor"] *= float(source.get("rest_factor", 1.0))
+    return adjustment
+
+
 async def generate_workout_session(
     session: AsyncSession,
     profile: Profile,
@@ -210,6 +247,9 @@ async def generate_workout_session(
     equipment_codes_by_id = {eq.id: eq.code for eq in eq_res.scalars().all()} if eq_res else {}
     selected_equipment_codes = set(equipment_codes_by_id.values())
     has_weighted_equipment = any(code not in BODYWEIGHT_EQUIPMENT_CODES for code in selected_equipment_codes)
+    last_review = await _get_last_review(session, profile.user_id)
+    review_adjustment = _combine_review_adjustments(last_review)
+    recent_skipped_ids = set(last_review.skipped_exercise_ids or []) if last_review else set()
 
     # Determine target groups
     if profile.training_structure == TrainingStructure.fullbody:
@@ -246,6 +286,10 @@ async def generate_workout_session(
         e for e in candidates_res.scalars().all()
         if _is_equipment_available(e, user_equipment_ids, selected_equipment_codes) and not _is_excluded(e.code, health_flags)
     ]
+    if recent_skipped_ids:
+        without_skipped = [e for e in candidates if e.id not in recent_skipped_ids]
+        if len(without_skipped) >= 3:
+            candidates = without_skipped
 
     # Group by muscle group ID
     by_mg: dict[int, list[Exercise]] = {}
@@ -279,12 +323,14 @@ async def generate_workout_session(
     goal = profile.goal or Goal.maintenance
     params = GOAL_PARAMS[goal]
     mod = MODIFIER_DELTA[modifier]
-    sets_count = max(1, params["sets"] + mod["sets"])
-    rest_secs = round(params["rest"] * mod["rest_factor"])
+    sets_count = max(1, params["sets"] + mod["sets"] + int(review_adjustment["sets_delta"]))
+    rest_secs = round(params["rest"] * mod["rest_factor"] * float(review_adjustment["rest_factor"]))
     if modifier == "hard":
         rest_secs = max(rest_secs, 120)
     time_per_ex = sets_count * (45 + rest_secs) / 60
     max_ex = max(3, int((profile.preferred_duration_min or 45) / time_per_ex))
+    if last_review and (last_review.skipped_exercise_ids or []):
+        max_ex = max(3, max_ex - 1)
     selected = selected[:max_ex]
 
     # Assign volume and save
@@ -303,7 +349,7 @@ async def generate_workout_session(
                 last_reps_done=target_reps, target_reps=target_reps,
                 last_rpe=None, exercise_type=ex.exercise_type.value, difficulty_modifier=modifier,
             )
-            weight *= mod["weight_pct"]
+            weight *= mod["weight_pct"] * float(review_adjustment["weight_factor"])
             weight = round(weight, 2)
 
         se = SessionExercise(
