@@ -22,6 +22,7 @@ from services.plateau_detection import check_and_apply_plateau
 from services.deload_on_return import apply_return_deload
 from services.rest_timer import run_rest_timer
 from services.workout_summary import build_workout_summary, format_summary_message
+from services.workout_structure import format_exercise_card, format_workout_overview
 import asyncio
 from bot.utils.message_edit import safe_edit_text
 
@@ -118,14 +119,11 @@ async def choose_modifier(callback: CallbackQuery, state: FSMContext, user: User
                                                workout_session_id=ws.id, modifier=modifier)
     await session.commit()
     await session.refresh(ws)
-    mod_names = {"light": "🟢 Облегчённый", "normal": "⚪ Обычный", "hard": "🔴 Утяжелённый"}
-    ex_list = "\n".join(f"{i+1}. {e.name_ru} — {se.target_sets}×{se.target_reps} · {se.target_weight_kg or 0:.1f} кг"
-                          for i, (se, e) in enumerate(exercises))
     total_time = sum(se.target_sets * (45 + se.rest_seconds) for se, _ in exercises) // 60 + 10
     await state.update_data(workout_session_id=ws.id)
     await state.set_state(WorkoutStates.overview)
     await safe_edit_text(callback.message,
-        f"📋 <b>{mod_names[modifier]}</b>\n\n{ex_list}\n\n⏱ ~{total_time} мин",
+        format_workout_overview(exercises, modifier, profile.goal, total_time),
         reply_markup=overview_kb(ws.id), parse_mode="HTML",
     )
 
@@ -147,7 +145,7 @@ async def begin_workout(callback: CallbackQuery, state: FSMContext, session: Asy
         await safe_edit_text(callback.message, "Список упражнений пуст.")
         return
     ex = await session.get(Exercise, first_se.exercise_id)
-    await state.update_data(current_set=1)
+    await state.update_data(current_set=1, workout_modifier=ws.difficulty_modifier.value)
     await state.set_state(WorkoutStates.logging_set)
 
     # Send exercise media if available
@@ -162,8 +160,7 @@ async def begin_workout(callback: CallbackQuery, state: FSMContext, session: Asy
         except Exception:
             pass
     await safe_edit_text(callback.message,
-        f"<b>{ex.name_ru}</b>\nПодход 1 из {first_se.target_sets} · "
-        f"{first_se.target_reps} повт. · {first_se.target_weight_kg or 0:.1f} кг",
+        format_exercise_card(first_se, ex, 1, ws.difficulty_modifier.value),
         reply_markup=set_log_kb(first_se.id, 1, first_se.target_reps, first_se.target_weight_kg or 0.0, exercise_technique_url(ex)),
         parse_mode="HTML"
     )
@@ -232,9 +229,10 @@ async def rest_done(callback: CallbackQuery, state: FSMContext, session: AsyncSe
     se = await session.get(SessionExercise, se_id)
     ex = await session.get(Exercise, se.exercise_id)
     await state.update_data(current_set=next_set)
+    data = await state.get_data()
+    modifier = data.get("workout_modifier", "normal")
     await safe_edit_text(callback.message,
-        f"<b>{ex.name_ru}</b>\nПодход {next_set} из {se.target_sets} · "
-        f"{se.target_reps} повт. · {se.target_weight_kg or 0:.1f} кг",
+        format_exercise_card(se, ex, next_set, modifier),
         reply_markup=set_log_kb(se_id, next_set, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex)),
         parse_mode="HTML"
     )
@@ -246,9 +244,10 @@ async def next_exercise(callback: CallbackQuery, state: FSMContext, session: Asy
     se = await session.get(SessionExercise, se_id)
     ex = await session.get(Exercise, se.exercise_id)
     await state.update_data(current_set=1, current_reps=None, current_weight=None)
+    data = await state.get_data()
+    modifier = data.get("workout_modifier", "normal")
     await callback.message.answer(
-        f"<b>{ex.name_ru}</b>\nПодход 1 из {se.target_sets} · "
-        f"{se.target_reps} повт. · {se.target_weight_kg or 0:.1f} кг",
+        format_exercise_card(se, ex, 1, modifier),
         reply_markup=set_log_kb(se_id, 1, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex)),
         parse_mode="HTML"
     )
@@ -264,7 +263,7 @@ async def resume_workout(callback, state, session):
         return
     ws.status = SessionStatus.in_progress
     await session.commit()
-    await state.update_data(workout_session_id=session_id)
+    await state.update_data(workout_session_id=session_id, workout_modifier=ws.difficulty_modifier.value)
     await state.set_state(WorkoutStates.in_exercise)
     res2 = await session.execute(
         select(SessionExercise)
@@ -278,7 +277,7 @@ async def resume_workout(callback, state, session):
     ex = await session.get(Exercise, se.exercise_id)
     await state.update_data(current_set=1, current_reps=None, current_weight=None)
     await safe_edit_text(callback.message,
-        f"▶️ <b>{ex.name_ru}</b>\nПодход 1 из {se.target_sets} · {se.target_reps} повт. · {se.target_weight_kg or 0:.1f} кг",
+        "▶️ " + format_exercise_card(se, ex, 1, ws.difficulty_modifier.value),
         reply_markup=set_log_kb(se.id, 1, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex)),
         parse_mode="HTML"
     )
@@ -367,9 +366,10 @@ async def do_replace_exercise(callback, state, session):
     await session.commit()
     data = await state.get_data()
     cs = data.get("current_set", 1)
+    modifier = data.get("workout_modifier", "normal")
     await state.update_data(current_reps=None, current_weight=None)
     await safe_edit_text(callback.message,
-        f"✅ Заменено на <b>{new_ex.name_ru}</b>\nПодход {cs} из {se.target_sets} · {se.target_reps} повт. · {se.target_weight_kg or 0:.1f} кг",
+        "✅ Заменено\n" + format_exercise_card(se, new_ex, cs, modifier),
         reply_markup=set_log_kb(se_id, cs, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(new_ex)),
         parse_mode="HTML"
     )
@@ -386,8 +386,9 @@ async def cancel_replace(callback, state, session):
     reps = data.get("current_reps") or se.target_reps
     weight = data.get("current_weight") if data.get("current_weight") is not None else (se.target_weight_kg or 0.0)
     weight = float(weight or 0.0)
+    modifier = data.get("workout_modifier", "normal")
     await safe_edit_text(callback.message,
-        f"<b>{ex.name_ru}</b>\nПодход {cs} из {se.target_sets} · {reps} повт. · {weight:.1f} кг",
+        format_exercise_card(se, ex, cs, modifier),
         reply_markup=set_log_kb(se_id, cs, reps, weight, exercise_technique_url(ex)),
         parse_mode="HTML"
     )
