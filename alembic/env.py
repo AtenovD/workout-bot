@@ -4,12 +4,9 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
 from core.db import Base
 
-# Import all models
-from models import user, workout
-from models import reminder, referral
-from models import gamification, exercise, profile, challenge
-from models import measurements, schedule, user_equipment
-from models import exercise_alternatives, records
+# Import the canonical model registry. Importing legacy duplicate modules here
+# can declare the same table twice and break Alembic before migrations run.
+import models  # noqa: F401
 
 config = context.config
 if config.config_file_name:
