@@ -154,7 +154,8 @@ async def _workout_context(
 def _system_prompt() -> str:
     return (
         "You are a conservative strength-training planning analyst. "
-        "Return only valid JSON. Do not diagnose injuries. "
+        "Return one valid compact JSON object only. No markdown, no commentary. "
+        "Do not diagnose injuries. "
         "Never increase load when pain_feedback is pain. "
         "Use exercise codes and muscle group codes from the input only when possible."
     )
@@ -162,19 +163,13 @@ def _system_prompt() -> str:
 
 def _user_prompt(context: dict[str, Any]) -> str:
     return (
-        "Analyze this completed workout and return a small JSON object for the next workout generator.\n"
-        "Schema:\n"
-        "{"
-        "\"intensity_delta\":\"much_easier|slightly_easier|keep|slightly_harder\","
-        "\"sets_delta\":-2..1,"
-        "\"weight_factor\":0.75..1.10,"
-        "\"rest_factor\":0.85..1.35,"
-        "\"avoid_exercise_codes\":[string],"
-        "\"prefer_exercise_codes\":[string],"
-        "\"reduce_muscle_groups\":[string],"
-        "\"focus_muscle_groups\":[string],"
-        "\"coach_note\":\"short Russian note, max 1 sentence\""
-        "}.\n"
+        "Return valid JSON matching exactly these keys: "
+        "intensity_delta, sets_delta, weight_factor, rest_factor, "
+        "avoid_exercise_codes, prefer_exercise_codes, reduce_muscle_groups, "
+        "focus_muscle_groups, coach_note. "
+        "Allowed intensity_delta: much_easier, slightly_easier, keep, slightly_harder. "
+        "sets_delta must be from -2 to 1. weight_factor must be 0.75..1.10. "
+        "rest_factor must be 0.85..1.35. coach_note must be Russian, max one sentence. "
         f"Workout JSON:\n{json.dumps(context, ensure_ascii=False, separators=(',', ':'))}"
     )
 
@@ -196,7 +191,7 @@ async def analyze_workout_review(
             {"role": "user", "content": _user_prompt(context)},
         ],
         "temperature": 0.2,
-        "max_tokens": 450,
+        "max_tokens": 700,
         "response_format": {"type": "json_object"},
     }
 
