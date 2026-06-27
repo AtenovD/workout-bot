@@ -111,4 +111,30 @@ def test_no_review_keeps_neutral_workout_load():
         "sets_delta": 0,
         "weight_factor": 1.0,
         "rest_factor": 1.0,
+        "avoid_exercise_codes": [],
+        "prefer_exercise_codes": [],
+        "reduce_muscle_groups": [],
+        "focus_muscle_groups": [],
     }
+
+
+def test_ai_adjustment_is_merged_and_clamped():
+    review = SimpleNamespace(
+        intensity_feedback="harder",
+        pain_feedback="none",
+        ai_adjustment={
+            "sets_delta": 4,
+            "weight_factor": 1.5,
+            "rest_factor": 0.2,
+            "avoid_exercise_codes": ["overhead_press"],
+            "focus_muscle_groups": ["chest"],
+        },
+    )
+
+    adjustment = _combine_review_adjustments(review)
+
+    assert adjustment["sets_delta"] == 1
+    assert adjustment["weight_factor"] == 1.1
+    assert adjustment["rest_factor"] == 0.85
+    assert adjustment["avoid_exercise_codes"] == ["overhead_press"]
+    assert adjustment["focus_muscle_groups"] == ["chest"]

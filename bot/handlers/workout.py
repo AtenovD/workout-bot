@@ -23,6 +23,7 @@ from services.deload_on_return import apply_return_deload
 from services.rest_timer import run_rest_timer
 from services.workout_summary import build_workout_summary, format_summary_message
 from services.workout_structure import format_exercise_card, format_workout_overview, warmup_targets_for
+from services.ai_coach import analyze_workout_review
 import asyncio
 from bot.utils.message_edit import safe_edit_text
 
@@ -256,6 +257,7 @@ async def set_done(callback: CallbackQuery, state: FSMContext, session: AsyncSes
             set_number=warmup_index,
             reps_done=reps,
             weight_kg=weight,
+            rpe=data.get("feedback_rpe"),
             is_warmup=True,
         ))
         await session.commit()
@@ -265,7 +267,7 @@ async def set_done(callback: CallbackQuery, state: FSMContext, session: AsyncSes
             next_index = warmup_index + 1
             next_target = warmups[next_index - 1]
             muscle_names = await _muscle_names_by_id(session)
-            await state.update_data(warmup_index=next_index, current_reps=None, current_weight=None)
+            await state.update_data(warmup_index=next_index, current_reps=None, current_weight=None, feedback_rpe=None)
             await safe_edit_text(
                 callback.message,
                 format_exercise_card(se, ex, 1, modifier, is_warmup=True, warmup_index=next_index, muscle_names_by_id=muscle_names),
@@ -279,7 +281,7 @@ async def set_done(callback: CallbackQuery, state: FSMContext, session: AsyncSes
             return
 
         muscle_names = await _muscle_names_by_id(session)
-        await state.update_data(set_phase="work", current_set=1, current_reps=None, current_weight=None)
+        await state.update_data(set_phase="work", current_set=1, current_reps=None, current_weight=None, feedback_rpe=None)
         await safe_edit_text(
             callback.message,
             format_exercise_card(se, ex, 1, modifier, muscle_names_by_id=muscle_names),
@@ -289,7 +291,13 @@ async def set_done(callback: CallbackQuery, state: FSMContext, session: AsyncSes
         await callback.answer("✅ Разминка готова. Переходим к рабочим подходам.")
         return
 
-    session.add(ExerciseSet(session_exercise_id=se_id, set_number=current_set, reps_done=reps, weight_kg=weight))
+    session.add(ExerciseSet(
+        session_exercise_id=se_id,
+        set_number=current_set,
+        reps_done=reps,
+        weight_kg=weight,
+        rpe=data.get("feedback_rpe"),
+    ))
     if current_set >= se.target_sets:
         se.is_completed = True
         await session.commit()
@@ -299,13 +307,13 @@ async def set_done(callback: CallbackQuery, state: FSMContext, session: AsyncSes
             .order_by(asc(SessionExercise.order_index)).limit(1)
         )
         next_se = next_res.scalar_one_or_none()
-        await state.update_data(current_set=1, warmup_index=1, set_phase="work", current_reps=None, current_weight=None)
+        await state.update_data(current_set=1, warmup_index=1, set_phase="work", current_reps=None, current_weight=None, feedback_rpe=None)
         await callback.message.edit_reply_markup(reply_markup=exercise_done_kb(next_se.id if next_se else None))
         await callback.answer("✅ Упражнение выполнено!")
     else:
         await session.commit()
         next_set = current_set + 1
-        await state.update_data(current_set=next_set, current_reps=None, current_weight=None)
+        await state.update_data(current_set=next_set, current_reps=None, current_weight=None, feedback_rpe=None)
         asyncio.create_task(run_rest_timer(callback.bot, callback.message.chat.id, se_id, next_set, se.rest_seconds or 90))
         await callback.message.edit_reply_markup(reply_markup=rest_kb(se_id, next_set))
         await callback.answer(f"✅ Подход {current_set} засчитан! Отдыхай {se.rest_seconds or 90} сек.")
@@ -744,14 +752,23 @@ async def review_pain(callback: CallbackQuery, user: User, session: AsyncSession
     if ws:
         ws.rpe_session = {"harder": 6, "ok": 8, "easier": 9}.get(intensity)
 
-    session.add(WorkoutReview(
+    review = WorkoutReview(
         workout_session_id=session_id,
         user_id=user.id,
         intensity_feedback=intensity,
         pain_feedback=pain,
         skipped_exercise_ids=skipped_ids,
         skipped_exercise_names=skipped_names,
-    ))
+    )
+    session.add(review)
+    await session.flush()
+    await session.commit()
+
+    ai_result = await analyze_workout_review(session, user.id, session_id, review)
+    review.ai_adjustment = ai_result.adjustment
+    review.ai_coach_note = ai_result.coach_note
+    review.ai_model = ai_result.model
+    review.ai_error = ai_result.error
     await session.commit()
 
     pain_text = {
@@ -759,11 +776,13 @@ async def review_pain(callback: CallbackQuery, user: User, session: AsyncSession
         "discomfort": "Дискомфорт записал, следующую тренировку сделаю осторожнее.",
         "pain": "Боль записал, следующую тренировку заметно разгружу.",
     }.get(pain, "Самочувствие записал.")
+    ai_note = f"\n\n🤖 {ai_result.coach_note}" if ai_result.coach_note else ""
     await safe_edit_text(
         callback.message,
         "✅ <b>Ревью сохранено</b>\n"
         f"{pain_text}\n"
-        "На следующей тренировке бот учтёт нагрузку, скипы и самочувствие.",
+        "На следующей тренировке бот учтёт нагрузку, скипы и самочувствие."
+        f"{ai_note}",
         reply_markup=main_menu_keyboard(),
         parse_mode="HTML",
     )

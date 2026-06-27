@@ -219,17 +219,34 @@ async def _get_last_review(session: AsyncSession, user_id: int) -> WorkoutReview
 
 
 def _combine_review_adjustments(review: WorkoutReview | None) -> dict[str, float | int]:
-    adjustment = {"sets_delta": 0, "weight_factor": 1.0, "rest_factor": 1.0}
+    adjustment = {
+        "sets_delta": 0,
+        "weight_factor": 1.0,
+        "rest_factor": 1.0,
+        "avoid_exercise_codes": [],
+        "prefer_exercise_codes": [],
+        "reduce_muscle_groups": [],
+        "focus_muscle_groups": [],
+    }
     if not review:
         return adjustment
 
     for source in (
         REVIEW_ADJUSTMENTS.get(review.intensity_feedback or "", {}),
         PAIN_ADJUSTMENTS.get(review.pain_feedback or "", {}),
+        getattr(review, "ai_adjustment", None) or {},
     ):
         adjustment["sets_delta"] += int(source.get("sets_delta", 0))
         adjustment["weight_factor"] *= float(source.get("weight_factor", 1.0))
         adjustment["rest_factor"] *= float(source.get("rest_factor", 1.0))
+        for key in ("avoid_exercise_codes", "prefer_exercise_codes", "reduce_muscle_groups", "focus_muscle_groups"):
+            values = source.get(key) or []
+            if isinstance(values, list):
+                adjustment[key] = list(dict.fromkeys([*adjustment[key], *[v for v in values if isinstance(v, str)]]))[:8]
+
+    adjustment["sets_delta"] = max(-2, min(1, int(adjustment["sets_delta"])))
+    adjustment["weight_factor"] = max(0.75, min(1.1, float(adjustment["weight_factor"])))
+    adjustment["rest_factor"] = max(0.85, min(1.35, float(adjustment["rest_factor"])))
     return adjustment
 
 
@@ -250,6 +267,10 @@ async def generate_workout_session(
     last_review = await _get_last_review(session, profile.user_id)
     review_adjustment = _combine_review_adjustments(last_review)
     recent_skipped_ids = set(last_review.skipped_exercise_ids or []) if last_review else set()
+    avoid_exercise_codes = set(review_adjustment.get("avoid_exercise_codes") or [])
+    prefer_exercise_codes = set(review_adjustment.get("prefer_exercise_codes") or [])
+    reduce_muscle_groups = set(review_adjustment.get("reduce_muscle_groups") or [])
+    focus_muscle_groups = set(review_adjustment.get("focus_muscle_groups") or [])
 
     # Determine target groups
     if profile.training_structure == TrainingStructure.fullbody:
@@ -290,6 +311,10 @@ async def generate_workout_session(
         without_skipped = [e for e in candidates if e.id not in recent_skipped_ids]
         if len(without_skipped) >= 3:
             candidates = without_skipped
+    if avoid_exercise_codes:
+        without_avoided = [e for e in candidates if e.code not in avoid_exercise_codes]
+        if len(without_avoided) >= 3:
+            candidates = without_avoided
 
     # Group by muscle group ID
     by_mg: dict[int, list[Exercise]] = {}
@@ -304,6 +329,8 @@ async def generate_workout_session(
         pool = by_mg.get(mg_id, [])
         if not pool: continue
         ranked = _rank_pool(pool, user_equipment_ids, modifier, has_weighted_equipment)
+        if prefer_exercise_codes:
+            ranked = sorted(ranked, key=lambda ex: ex.code in prefer_exercise_codes, reverse=True)
         compounds = [e for e in ranked if e.exercise_type == ExerciseType.compound]
         isolations = [e for e in ranked if e.exercise_type == ExerciseType.isolation]
         is_major = code in MAJOR_GROUPS
@@ -349,7 +376,13 @@ async def generate_workout_session(
                 last_reps_done=target_reps, target_reps=target_reps,
                 last_rpe=None, exercise_type=ex.exercise_type.value, difficulty_modifier=modifier,
             )
-            weight *= mod["weight_pct"] * float(review_adjustment["weight_factor"])
+            muscle_code = next((code for code, mg_id in muscle_groups if mg_id == ex.primary_muscle_group_id), "")
+            muscle_factor = 1.0
+            if muscle_code in reduce_muscle_groups:
+                muscle_factor *= 0.9
+            if muscle_code in focus_muscle_groups and muscle_code not in reduce_muscle_groups:
+                muscle_factor *= 1.03
+            weight *= mod["weight_pct"] * float(review_adjustment["weight_factor"]) * muscle_factor
             weight = round(weight, 2)
 
         se = SessionExercise(

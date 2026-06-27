@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     API_SECRET: str = "change_me"
 
+    # AI coach
+    GROQ_API_KEY: Optional[str] = None
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_TIMEOUT_SECONDS: float = 8.0
+
     @property
     def admin_ids_list(self) -> list[int]:
         return [int(x) for x in self.ADMIN_IDS.split(",") if x.strip()]
