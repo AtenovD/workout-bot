@@ -46,9 +46,12 @@ def experience_kb():
 
 def health_kb(selected: list[str]):
     flags = [
-        ("колени", "knee_injury"), ("поясница", "lower_back_pain"),
-        ("плечи", "shoulder_issue"), ("давление", "hypertension"),
-        ("грыжа", "hernia"), ("нет ограничений", "none"),
+        ("Колени: боль, травмы, нестабильность", "knee_injury"),
+        ("Поясница: боль, протрузии, дискомфорт", "lower_back_pain"),
+        ("Плечи: боль, импинджмент, ограничение движения", "shoulder_issue"),
+        ("Давление / сердце: осторожнее с пульсом и отказом", "hypertension"),
+        ("Грыжа / протрузия: избегать рискованных осевых нагрузок", "hernia"),
+        ("Нет ограничений", "none"),
     ]
     rows = []
     for label, code in flags:
@@ -91,12 +94,19 @@ async def build_equipment_items_kb(session: AsyncSession, selected_ids: list[int
     result = await session.execute(
         select(Equipment).where(Equipment.category == category).order_by(Equipment.id)
     )
-    items = result.scalars().all()
+    items = []
+    seen_labels: set[str] = set()
+    for eq in result.scalars().all():
+        label_key = (eq.name_ru or eq.name_en or eq.code).strip().lower()
+        if label_key in seen_labels:
+            continue
+        seen_labels.add(label_key)
+        items.append(eq)
     rows = []
     for eq in items:
-        mark = "✅" if eq.id in selected_ids else "+"
+        mark = "✅" if eq.id in selected_ids else "⬜"
         rows.append([InlineKeyboardButton(
-            text=f"{eq.icon or '•'} {mark} {eq.name_ru}",
+            text=f"{mark} {eq.name_ru}{(' ' + eq.icon) if eq.icon else ''}",
             callback_data=f"eq_tgl:{eq.id}:{category}",
         )])
     rows.append([InlineKeyboardButton(text="🔙 Назад к категориям", callback_data="eq_back_cat")])
@@ -114,7 +124,7 @@ async def cmd_start(message: Message, state: FSMContext, user: User, session: As
             "Твоя тренировочная система готова: можно начать занятие, проверить прогресс, "
             "открыть достижения, настроить расписание или обновить инвентарь.\n\n"
             "Выбери модуль ниже — я подстрою следующий шаг под твой профиль.",
-            reply_markup=main_menu_keyboard(),
+            reply_markup=main_menu_keyboard(lang=user.language_code or "ru"),
             parse_mode="HTML",
         )
         return
@@ -129,19 +139,39 @@ async def cmd_start(message: Message, state: FSMContext, user: User, session: As
 
 
 @router.callback_query(F.data.startswith("onboarding_lang:"))
-async def onboarding_language(callback: CallbackQuery, state: FSMContext):
+async def onboarding_language(callback: CallbackQuery, state: FSMContext, user: User, session: AsyncSession):
     lang = callback.data.split(":")[1]
+    if lang not in {"ru", "en"}:
+        await callback.answer("Unsupported language", show_alert=True)
+        return
+    user.language_code = lang
+    await session.commit()
     await state.update_data(language=lang)
     await state.set_state(OnboardingStates.welcome)
+    if lang == "en":
+        text = (
+            f"👋 <b>Hi, {callback.from_user.first_name}!</b>\n\n"
+            "I am your <b>personal AI coach</b>. I will:\n"
+            "• Build workouts strictly around your inventory\n"
+            "• Guide you exercise by exercise with visuals\n"
+            "• Track progress and adjust load automatically\n"
+            "• Motivate you with XP, levels, and achievements\n\n"
+            "Let's run a quick calibration — about 2 minutes 🚀"
+        )
+        button = "🚀 Let's go!"
+    else:
+        text = (
+            f"👋 <b>Привет, {callback.from_user.first_name}!</b>\n\n"
+            "Я — твой <b>персональный AI-тренер</b>. Я:\n"
+            "• Создам тренировки строго под твой инвентарь\n"
+            "• Буду вести упражнение за упражнением с фото\n"
+            "• Слежу за прогрессом и поднимаю нагрузку сам\n"
+            "• Мотивирую уровнями, XP и достижениями\n\n"
+            "Пройдём быструю калибровку — займёт ~2 минуты 🚀"
+        )
     await safe_edit_text(callback.message,
-        f"👋 <b>Привет, {callback.from_user.first_name}!</b>\n\n"
-        "Я — твой <b>персональный AI-тренер</b>. Я:\n"
-        "• Создам тренировки строго под твой инвентарь\n"
-        "• Буду вести упражнение за упражнением с фото\n"
-        "• Слежу за прогрессом и поднимаю нагрузку сам\n"
-        "• Мотивирую уровнями, XP и достижениями\n\n"
-        "Пройдём быструю калибровку — займёт ~2 минуты 🚀",
-        reply_markup=_kb([("🚀 Поехали!", "cal:start")]),
+        text,
+        reply_markup=_kb([(button if lang == "en" else "🚀 Поехали!", "cal:start")]),
         parse_mode="HTML",
     )
 
@@ -226,7 +256,9 @@ async def step_health_flags(callback: CallbackQuery, state: FSMContext):
     await state.update_data(experience_level=parts[2], experience_months=int(parts[3]), health_flags=[])
     await state.set_state(OnboardingStates.health_flags)
     await safe_edit_text(callback.message,
-        "🏥 <b>Шаг 8 / 11 — Здоровье</b>\n\nОтметь всё что актуально:",
+        "🏥 <b>Шаг 8 / 11 — Здоровье и ограничения</b>\n\n"
+        "Отметь всё, что может влиять на подбор упражнений. Я буду осторожнее с нагрузкой, "
+        "амплитудой и упражнениями, которые могут раздражать проблемную зону.",
         reply_markup=health_kb([]), parse_mode="HTML"
     )
 
@@ -288,7 +320,15 @@ async def eq_back_to_categories_onboarding(call: CallbackQuery, state: FSMContex
 @router.callback_query(OnboardingStates.equipment, F.data.startswith("eq_tgl:"))
 async def toggle_equipment_onboarding(call: CallbackQuery, state: FSMContext, session: AsyncSession):
     _, eq_id_str, category = call.data.split(":", 2)
-    eq_id = int(eq_id_str)
+    if eq_id_str.isdigit():
+        eq_id = int(eq_id_str)
+    else:
+        eq = (await session.execute(select(Equipment).where(Equipment.code == eq_id_str))).scalar_one_or_none()
+        if not eq:
+            await call.answer("Инвентарь не найден.", show_alert=True)
+            return
+        eq_id = eq.id
+        category = eq.category.value if hasattr(eq.category, "value") else str(eq.category)
     data = await state.get_data()
     selected = list(data.get("equipment_ids", []))
     if eq_id in selected:
@@ -407,6 +447,6 @@ async def finish_calibration(callback: CallbackQuery, state: FSMContext, user: U
         f"📅 <b>Дней в нед.:</b> {cal.recommended_days_per_week}\n"
         f"⏱ <b>Длительность:</b> {cal.recommended_duration_min} мин\n\n"
         "Готов к первой тренировке? 💪",
-        reply_markup=main_menu_keyboard(),
+        reply_markup=main_menu_keyboard(lang=data.get("language", user.language_code or "ru")),
         parse_mode="HTML",
     )

@@ -11,6 +11,7 @@ from models.body_measurement import BodyMeasurement
 from models.personal_record import PersonalRecord
 from core.db import AsyncSessionLocal
 from bot.keyboards.main_menu import main_menu_keyboard
+from bot.texts import t
 from bot.utils.module_visuals import send_module_visual
 from bot.utils.message_edit import safe_edit_text
 
@@ -20,14 +21,14 @@ router = Router()
 @router.callback_query(F.data == "menu:settings")
 @router.message(F.text == "⚙️ Настройки")
 async def settings_menu(msg_or_cb, user: User, **kwargs):
-    target = msg_or_cb.message if isinstance(msg_or_cb, CallbackQuery) else msg_or_cb
+    lang = user.language_code or "ru"
     kb = InlineKeyboardBuilder()
-    kb.button(text="📤 Экспорт данных", callback_data="settings:export")
-    kb.button(text="🗑 Сбросить прогресс", callback_data="settings:reset_confirm")
-    kb.button(text="🌍 Сменить язык", callback_data="settings:language")
-    kb.button(text="◀️ Главное меню", callback_data="menu:main")
+    kb.button(text=t("settings_export", lang), callback_data="settings:export")
+    kb.button(text=t("settings_reset", lang), callback_data="settings:reset_confirm")
+    kb.button(text=t("settings_language", lang), callback_data="settings:language")
+    kb.button(text=t("settings_main_menu", lang), callback_data="menu:main")
     kb.adjust(1)
-    text = "⚙️ <b>Настройки</b>\n\nВыберите действие:"
+    text = t("settings_title", lang)
     if isinstance(msg_or_cb, CallbackQuery):
         await send_module_visual(msg_or_cb, "settings", text, reply_markup=kb.as_markup())
     else:
@@ -40,7 +41,7 @@ async def change_language(cb: CallbackQuery):
         InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru"),
         InlineKeyboardButton(text="🇬🇧 English", callback_data="lang:en"),
     ], [InlineKeyboardButton(text="◀️", callback_data="menu:settings")]])
-    await safe_edit_text(cb.message, "🌍 Choose language / Выберите язык:", reply_markup=kb)
+    await safe_edit_text(cb.message, t("language_choose"), reply_markup=kb)
     await cb.answer()
 
 
@@ -56,8 +57,8 @@ async def save_language(cb: CallbackQuery, user: User, session: AsyncSession):
 
     labels = {"ru": "Русский", "en": "English"}
     await safe_edit_text(cb.message,
-        f"✅ Язык изменён: <b>{labels[language_code]}</b>",
-        reply_markup=main_menu_keyboard(),
+        t("language_changed", language_code, language=labels[language_code]),
+        reply_markup=main_menu_keyboard(lang=language_code),
         parse_mode="HTML",
     )
     await cb.answer()
@@ -120,6 +121,6 @@ async def reset_do(cb: CallbackQuery, user: User):
         await session.commit()
     await safe_edit_text(cb.message,
         "🗑 <b>Прогресс сброшен.</b>\n\nВсе тренировки, рекорды и замеры удалены.",
-        reply_markup=main_menu_keyboard(),
+        reply_markup=main_menu_keyboard(lang=user.language_code or "ru"),
         parse_mode="HTML"
     )

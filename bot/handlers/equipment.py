@@ -41,6 +41,12 @@ async def _get_user_equipment_ids(session: AsyncSession, user_id: int) -> set[in
     return {row[0] for row in result.fetchall()}
 
 
+def _equipment_label(eq: Equipment, selected: bool) -> str:
+    mark = "✅" if selected else "⬜"
+    icon = f" {eq.icon}" if eq.icon else ""
+    return f"{mark} {eq.name_ru}{icon}"
+
+
 def _build_category_kb():
     """Step 1: show three category buttons + Done."""
     kb = InlineKeyboardBuilder()
@@ -63,14 +69,20 @@ async def _build_category_items_kb(
         .where(Equipment.category == category)
         .order_by(Equipment.id)
     )
-    items = eq_result.scalars().all()
+    items = []
+    seen_labels: set[str] = set()
+    for eq in eq_result.scalars().all():
+        label_key = (eq.name_ru or eq.name_en or eq.code).strip().lower()
+        if label_key in seen_labels:
+            continue
+        seen_labels.add(label_key)
+        items.append(eq)
     selected_ids = await _get_user_equipment_ids(session, user_id)
 
     kb = InlineKeyboardBuilder()
     for eq in items:
-        checked = "✅ " if eq.id in selected_ids else ""
         kb.button(
-            text=f"{eq.icon or '•'} {checked}{eq.name_ru}",
+            text=_equipment_label(eq, eq.id in selected_ids),
             callback_data=f"eq_toggle:{eq.id}:{category}",
         )
 
@@ -151,7 +163,15 @@ async def pick_category(call: CallbackQuery, session: AsyncSession, state: FSMCo
 async def toggle_equipment(call: CallbackQuery, session: AsyncSession, state: FSMContext, user: User):
     """Toggle a specific equipment item for the user."""
     _, eq_id_str, category = call.data.split(":", 2)
-    eq_id = int(eq_id_str)
+    if eq_id_str.isdigit():
+        eq_id = int(eq_id_str)
+    else:
+        eq = (await session.execute(select(Equipment).where(Equipment.code == eq_id_str))).scalar_one_or_none()
+        if not eq:
+            await call.answer("Инвентарь не найден.", show_alert=True)
+            return
+        eq_id = eq.id
+        category = eq.category.value if hasattr(eq.category, "value") else str(eq.category)
 
     user_id = user.id
     selected_ids = await _get_user_equipment_ids(session, user_id)

@@ -15,6 +15,15 @@ from bot.utils.message_edit import safe_edit_text
 router = Router()
 
 DAY_NAMES = {0: "Пн", 1: "Вт", 2: "Ср", 3: "Чт", 4: "Пт", 5: "Сб", 6: "Вс"}
+DAY_ALIASES = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+}
 
 
 def schedule_menu_kb(schedule=None):
@@ -24,18 +33,18 @@ def schedule_menu_kb(schedule=None):
         day_row = []
         for d in range(7):
             mark = "✅" if d in days else "⬜"
-            day_row.append(InlineKeyboardButton(text=f"{mark}{DAY_NAMES[d]}", callback_data=f"sched:day:{d}"))
+            day_row.append(InlineKeyboardButton(text=f"{mark}{DAY_NAMES[d]}", callback_data=f"schedule:day:{d}"))
         rows.append(day_row[:4])
         rows.append(day_row[4:])
         rem_text = f"🔔 Напоминание: {'вкл' if schedule.reminder_enabled else 'выкл'}"
-        rows.append([InlineKeyboardButton(text=rem_text, callback_data="sched:toggle_reminder")])
+        rows.append([InlineKeyboardButton(text=rem_text, callback_data="schedule:toggle_reminder")])
         if schedule.reminder_enabled:
             time_str = schedule.reminder_time.strftime("%H:%M") if schedule.reminder_time else "не задано"
-            rows.append([InlineKeyboardButton(text=f"⏰ Время: {time_str}", callback_data="sched:set_time")])
+            rows.append([InlineKeyboardButton(text=f"⏰ Время: {time_str}", callback_data="schedule:set_time")])
     else:
         rows.append([
-            InlineKeyboardButton(text="📅 Фиксированный", callback_data="sched:mode:fixed"),
-            InlineKeyboardButton(text="🎲 Спонтанный", callback_data="sched:mode:spontaneous"),
+            InlineKeyboardButton(text="📅 Фиксированный", callback_data="schedule:mode:fixed"),
+            InlineKeyboardButton(text="🎲 Спонтанный", callback_data="schedule:mode:spontaneous"),
         ])
     rows.append([InlineKeyboardButton(text="◀️ Назад", callback_data="menu:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -64,9 +73,12 @@ async def show_schedule(event, user: User, session: AsyncSession, **kwargs):
             text += f"\nВремя: {sched.reminder_time.strftime('%H:%M')}"
 
     await send_module_visual(event, "schedule", text, reply_markup=schedule_menu_kb(sched))
+    if isinstance(event, CallbackQuery):
+        await event.answer()
 
 
 @router.callback_query(F.data.startswith("sched:mode:"))
+@router.callback_query(F.data.startswith("schedule:mode:"))
 async def set_mode(callback: CallbackQuery, user: User, session: AsyncSession):
     mode = callback.data.split(":")[2]
     sched_res = await session.execute(select(Schedule).where(Schedule.user_id == user.id))
@@ -80,12 +92,22 @@ async def set_mode(callback: CallbackQuery, user: User, session: AsyncSession):
 
 
 @router.callback_query(F.data.startswith("sched:day:"))
+@router.callback_query(F.data.startswith("schedule:day:"))
+@router.callback_query(F.data.startswith("schedule:toggle:"))
 async def toggle_day(callback: CallbackQuery, user: User, session: AsyncSession):
-    day = int(callback.data.split(":")[2])
+    raw_day = callback.data.split(":")[2]
+    day = DAY_ALIASES.get(raw_day, int(raw_day) if raw_day.isdigit() else -1)
+    if day not in DAY_NAMES:
+        await callback.answer("Неизвестный день.", show_alert=True)
+        return
     sched_res = await session.execute(select(Schedule).where(Schedule.user_id == user.id))
     sched = sched_res.scalar_one_or_none()
     if not sched:
-        return
+        sched = Schedule(user_id=user.id, mode=ScheduleMode.fixed)
+        session.add(sched)
+        await session.flush()
+    if sched.mode != ScheduleMode.fixed:
+        sched.mode = ScheduleMode.fixed
     days = list(sched.days_of_week or [])
     if day in days:
         days.remove(day)
@@ -97,6 +119,7 @@ async def toggle_day(callback: CallbackQuery, user: User, session: AsyncSession)
 
 
 @router.callback_query(F.data == "sched:toggle_reminder")
+@router.callback_query(F.data == "schedule:toggle_reminder")
 async def toggle_reminder(callback: CallbackQuery, user: User, session: AsyncSession):
     sched_res = await session.execute(select(Schedule).where(Schedule.user_id == user.id))
     sched = sched_res.scalar_one_or_none()
@@ -107,6 +130,7 @@ async def toggle_reminder(callback: CallbackQuery, user: User, session: AsyncSes
 
 
 @router.callback_query(F.data == "sched:set_time")
+@router.callback_query(F.data == "schedule:set_time")
 async def ask_reminder_time(callback: CallbackQuery, state: FSMContext):
     await state.set_state(ScheduleStates.entering_time)
     await safe_edit_text(callback.message, "Введи время напоминания в формате ЧЧ:ММ\n_Например: 08:00_", parse_mode="Markdown")

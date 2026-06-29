@@ -2,15 +2,18 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 from bot.keyboards.main_menu import main_menu_keyboard
+from bot.texts import t
+from models.user import User
 
 router = Router()
 
 
 @router.message(Command("menu"))
-async def cmd_menu(message: Message):
+async def cmd_menu(message: Message, user: User):
+    lang = user.language_code or "ru"
     await message.answer(
-        "🏠 <b>Главное меню</b>\n\nВыбери раздел:",
-        reply_markup=main_menu_keyboard(),
+        t("main_menu_title", lang),
+        reply_markup=main_menu_keyboard(lang=lang),
         parse_mode="HTML",
     )
 

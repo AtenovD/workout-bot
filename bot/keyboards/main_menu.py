@@ -1,23 +1,25 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+from bot.texts import t
 
-def main_menu_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
+
+def main_menu_keyboard(is_admin: bool = False, lang: str = "ru") -> InlineKeyboardMarkup:
     rows = [
-        [InlineKeyboardButton(text="🏋️ Тренировка", callback_data="menu:workout")],
+        [InlineKeyboardButton(text=t("menu_workout", lang), callback_data="menu:workout")],
         [
-            InlineKeyboardButton(text="📊 Прогресс", callback_data="menu:progress"),
-            InlineKeyboardButton(text="🏆 Достижения", callback_data="gam:achieve"),
+            InlineKeyboardButton(text=t("menu_progress", lang), callback_data="menu:progress"),
+            InlineKeyboardButton(text=t("menu_achievements", lang), callback_data="gam:achieve"),
         ],
         [
-            InlineKeyboardButton(text="📋 Калибровка", callback_data="menu:calibration"),
-            InlineKeyboardButton(text="📅 Расписание", callback_data="menu:schedule"),
+            InlineKeyboardButton(text=t("menu_calibration", lang), callback_data="menu:calibration"),
+            InlineKeyboardButton(text=t("menu_schedule", lang), callback_data="menu:schedule"),
         ],
-        [InlineKeyboardButton(text="🎯 30-дн. Челлендж", callback_data="menu:challenge")],
+        [InlineKeyboardButton(text=t("menu_challenge", lang), callback_data="menu:challenge")],
         [
-            InlineKeyboardButton(text="🎒 Инвентарь", callback_data="menu:equipment"),
-            InlineKeyboardButton(text="⚙️ Настройки", callback_data="menu:settings"),
+            InlineKeyboardButton(text=t("menu_equipment", lang), callback_data="menu:equipment"),
+            InlineKeyboardButton(text=t("menu_settings", lang), callback_data="menu:settings"),
         ],
     ]
     if is_admin:
-        rows.append([InlineKeyboardButton(text="🔧 Админ", callback_data="menu:admin")])
+        rows.append([InlineKeyboardButton(text=t("menu_admin", lang), callback_data="menu:admin")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
