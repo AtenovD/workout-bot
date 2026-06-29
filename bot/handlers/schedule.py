@@ -3,7 +3,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 from datetime import time
 
 from models.user import User
@@ -50,6 +50,13 @@ def schedule_menu_kb(schedule=None):
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+async def _create_schedule(session: AsyncSession, user_id: int, mode: ScheduleMode = ScheduleMode.spontaneous) -> Schedule:
+    max_id = (await session.execute(select(func.max(Schedule.id)))).scalar() or 0
+    sched = Schedule(id=max_id + 1, user_id=user_id, mode=mode)
+    session.add(sched)
+    return sched
+
+
 @router.message(Command("schedule"))
 @router.callback_query(F.data == "menu:schedule")
 async def show_schedule(event, user: User, session: AsyncSession, **kwargs):
@@ -84,8 +91,7 @@ async def set_mode(callback: CallbackQuery, user: User, session: AsyncSession):
     sched_res = await session.execute(select(Schedule).where(Schedule.user_id == user.id))
     sched = sched_res.scalar_one_or_none()
     if not sched:
-        sched = Schedule(user_id=user.id)
-        session.add(sched)
+        sched = await _create_schedule(session, user.id)
     sched.mode = ScheduleMode(mode)
     await session.commit()
     await show_schedule(callback, user=user, session=session)
@@ -103,8 +109,7 @@ async def toggle_day(callback: CallbackQuery, user: User, session: AsyncSession)
     sched_res = await session.execute(select(Schedule).where(Schedule.user_id == user.id))
     sched = sched_res.scalar_one_or_none()
     if not sched:
-        sched = Schedule(user_id=user.id, mode=ScheduleMode.fixed)
-        session.add(sched)
+        sched = await _create_schedule(session, user.id, ScheduleMode.fixed)
         await session.flush()
     if sched.mode != ScheduleMode.fixed:
         sched.mode = ScheduleMode.fixed
