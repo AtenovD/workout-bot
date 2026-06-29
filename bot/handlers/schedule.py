@@ -43,8 +43,8 @@ def schedule_menu_kb(schedule=None):
             rows.append([InlineKeyboardButton(text=f"⏰ Время: {time_str}", callback_data="schedule:set_time")])
     else:
         rows.append([
-            InlineKeyboardButton(text="📅 Фиксированный", callback_data="schedule:mode:fixed"),
-            InlineKeyboardButton(text="🎲 Спонтанный", callback_data="schedule:mode:spontaneous"),
+            InlineKeyboardButton(text="📅 По дням недели", callback_data="schedule:mode:fixed"),
+            InlineKeyboardButton(text="🎲 Без фиксированных дней", callback_data="schedule:mode:spontaneous"),
         ])
     rows.append([InlineKeyboardButton(text="◀️ Назад", callback_data="menu:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -65,17 +65,32 @@ async def show_schedule(event, user: User, session: AsyncSession, **kwargs):
     sched = sched_res.scalar_one_or_none()
 
     if not sched:
-        text = "📅 <b>Расписание</b>\n\nВыбери режим тренировок:"
-    else:
-        mode_names = {"fixed": "Фиксированный", "spontaneous": "Спонтанный"}
-        days = sched.days_of_week or []
-        days_str = ", ".join(DAY_NAMES[d] for d in sorted(days)) if days else "не выбраны"
         text = (
-            f"📅 <b>Расписание</b>\n\n"
-            f"Режим: {mode_names.get(sched.mode.value, '—')}\n"
-            f"Дни: {days_str}\n"
-            f"Напоминание: {'✅ вкл' if sched.reminder_enabled else '❌ выкл'}"
+            "📅 <b>Расписание тренировок</b>\n\n"
+            "Выбери, как бот должен относиться к неделе:\n\n"
+            "• <b>По дням недели</b> — ты отмечаешь конкретные дни, и бот держит ритм.\n"
+            "• <b>Без фиксированных дней</b> — бот не привязан к календарю, удобно при плавающем графике."
         )
+    else:
+        mode_names = {"fixed": "По дням недели", "spontaneous": "Без фиксированных дней"}
+        days = sched.days_of_week or []
+        days_str = ", ".join(DAY_NAMES[d] for d in sorted(days)) if days else "пока не выбраны"
+        if sched.mode == ScheduleMode.fixed:
+            text = (
+                f"📅 <b>Расписание тренировок</b>\n\n"
+                f"Режим: <b>{mode_names.get(sched.mode.value, '—')}</b>\n"
+                f"Дни: <b>{days_str}</b>\n\n"
+                "Нажимай на дни ниже, чтобы включить/убрать тренировочный день.\n"
+                f"Напоминание: {'✅ включено' if sched.reminder_enabled else '❌ выключено'}"
+            )
+        else:
+            text = (
+                f"📅 <b>Расписание тренировок</b>\n\n"
+                f"Режим: <b>{mode_names.get(sched.mode.value, '—')}</b>\n\n"
+                "Бот не будет привязывать тренировки к конкретным дням. "
+                "Когда откроешь тренировку, он продолжит следующий шаг твоей программы.\n"
+                f"Напоминание: {'✅ включено' if sched.reminder_enabled else '❌ выключено'}"
+            )
         if sched.reminder_enabled and sched.reminder_time:
             text += f"\nВремя: {sched.reminder_time.strftime('%H:%M')}"
 

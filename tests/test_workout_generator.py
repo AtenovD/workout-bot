@@ -4,7 +4,9 @@ from models.exercise import EquipmentCategory, ExerciseType
 from models.profile import Goal
 from services.workout_generator import (
     _combine_review_adjustments,
+    _combine_health_adjustments,
     _exercise_score,
+    _is_excluded,
     _is_equipment_available,
     _rank_pool,
     _resolve_muscle_groups,
@@ -138,3 +140,19 @@ def test_ai_adjustment_is_merged_and_clamped():
     assert adjustment["rest_factor"] == 0.85
     assert adjustment["avoid_exercise_codes"] == ["overhead_press"]
     assert adjustment["focus_muscle_groups"] == ["chest"]
+
+
+def test_hernia_flags_exclude_high_pressure_exercises():
+    assert _is_excluded("deadlift", ["hiatal_hernia"]) is True
+    assert _is_excluded("leg_press_ex", ["inguinal_hernia"]) is True
+    assert _is_excluded("ab_wheel", ["umbilical_hernia"]) is True
+    assert _is_excluded("cable_crunch", ["hernia"]) is True
+    assert _is_excluded("db_bench_press", ["hiatal_hernia"]) is False
+
+
+def test_health_flags_reduce_load_and_add_rest():
+    adjustment = _combine_health_adjustments(["hiatal_hernia", "hypertension"])
+
+    assert adjustment["sets_delta"] == -2
+    assert adjustment["weight_factor"] < 0.8
+    assert adjustment["rest_factor"] > 1.3

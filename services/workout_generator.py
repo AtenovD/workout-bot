@@ -54,10 +54,31 @@ PAIN_ADJUSTMENTS = {
 }
 
 HEALTH_EXCLUSIONS = {
-    "lower_back_pain": ["deadlift", "good_morning", "hyperextension", "stiff_leg"],
-    "knee_injury":     ["deep_squat", "full_lunge", "box_jump"],
-    "shoulder_issue":  ["overhead_press", "upright_row", "behind_neck"],
-    "hernia":          ["deadlift", "heavy_squat", "leg_press"],
+    "lower_back_pain": ["deadlift", "good_morning", "hyperextension", "stiff_leg", "barbell_row"],
+    "spinal_disc_hernia": ["deadlift", "good_morning", "hyperextension", "stiff_leg", "barbell_row", "squat_barbell"],
+    "knee_injury": ["deep_squat", "full_lunge", "box_jump", "jump", "pistol_squat"],
+    "knee_pain": ["deep_squat", "box_jump", "jump", "pistol_squat"],
+    "shoulder_issue": ["overhead_press", "upright_row", "behind_neck", "arnold_press", "dip"],
+    "hypertension": ["max_effort", "heavy_single"],
+    "heart_condition": ["max_effort", "heavy_single", "burpee", "jump"],
+    "hiatal_hernia": ["deadlift", "squat", "leg_press", "lunge", "ab_wheel", "crunch", "woodchop", "pull_through", "kettlebell_swing"],
+    "inguinal_hernia": ["deadlift", "squat", "leg_press", "lunge", "ab_wheel", "crunch", "plank", "woodchop", "pull_through", "kettlebell_swing"],
+    "umbilical_hernia": ["deadlift", "squat", "leg_press", "lunge", "ab_wheel", "crunch", "plank", "woodchop", "pull_through", "kettlebell_swing"],
+    "hernia": ["deadlift", "squat", "leg_press", "lunge", "ab_wheel", "crunch", "plank", "woodchop", "pull_through", "kettlebell_swing"],
+}
+
+HEALTH_LOAD_ADJUSTMENTS = {
+    "lower_back_pain": {"sets_delta": -1, "weight_factor": 0.9, "rest_factor": 1.1},
+    "spinal_disc_hernia": {"sets_delta": -1, "weight_factor": 0.82, "rest_factor": 1.2},
+    "knee_injury": {"sets_delta": -1, "weight_factor": 0.88, "rest_factor": 1.1},
+    "knee_pain": {"sets_delta": -1, "weight_factor": 0.9, "rest_factor": 1.1},
+    "shoulder_issue": {"sets_delta": -1, "weight_factor": 0.88, "rest_factor": 1.12},
+    "hypertension": {"sets_delta": -1, "weight_factor": 0.85, "rest_factor": 1.25},
+    "heart_condition": {"sets_delta": -1, "weight_factor": 0.8, "rest_factor": 1.3},
+    "hiatal_hernia": {"sets_delta": -1, "weight_factor": 0.82, "rest_factor": 1.2},
+    "inguinal_hernia": {"sets_delta": -1, "weight_factor": 0.8, "rest_factor": 1.25},
+    "umbilical_hernia": {"sets_delta": -1, "weight_factor": 0.8, "rest_factor": 1.25},
+    "hernia": {"sets_delta": -1, "weight_factor": 0.82, "rest_factor": 1.2},
 }
 
 GROUP_ALIASES = {
@@ -92,13 +113,37 @@ CODE_REQUIRED_EQUIPMENT = {
 }
 
 
-def _is_excluded(code: str, health_flags: list) -> bool:
-    for flag in (health_flags or []):
+def _normalize_health_flags(health_flags) -> list[str]:
+    if isinstance(health_flags, dict):
+        raw = health_flags.get("flags") or health_flags.get("selected") or []
+    else:
+        raw = health_flags or []
+    return [flag for flag in raw if isinstance(flag, str)]
+
+
+def _is_excluded(code: str, health_flags) -> bool:
+    normalized_code = (code or "").lower()
+    for flag in _normalize_health_flags(health_flags):
         if flag == "none": continue
         for prefix in HEALTH_EXCLUSIONS.get(flag, []):
-            if code.startswith(prefix):
+            if prefix in normalized_code:
                 return True
     return False
+
+
+def _combine_health_adjustments(health_flags) -> dict[str, float | int]:
+    adjustment = {"sets_delta": 0, "weight_factor": 1.0, "rest_factor": 1.0}
+    for flag in _normalize_health_flags(health_flags):
+        source = HEALTH_LOAD_ADJUSTMENTS.get(flag)
+        if not source:
+            continue
+        adjustment["sets_delta"] += int(source.get("sets_delta", 0))
+        adjustment["weight_factor"] *= float(source.get("weight_factor", 1.0))
+        adjustment["rest_factor"] *= float(source.get("rest_factor", 1.0))
+    adjustment["sets_delta"] = max(-2, min(0, int(adjustment["sets_delta"])))
+    adjustment["weight_factor"] = max(0.7, min(1.0, float(adjustment["weight_factor"])))
+    adjustment["rest_factor"] = max(1.0, min(1.45, float(adjustment["rest_factor"])))
+    return adjustment
 
 
 def _resolve_muscle_groups(target_groups: list[str], available: dict[str, int]) -> list[tuple[str, int]]:
@@ -266,6 +311,7 @@ async def generate_workout_session(
     has_weighted_equipment = any(code not in BODYWEIGHT_EQUIPMENT_CODES for code in selected_equipment_codes)
     last_review = await _get_last_review(session, profile.user_id)
     review_adjustment = _combine_review_adjustments(last_review)
+    health_adjustment = _combine_health_adjustments(health_flags)
     recent_skipped_ids = set(last_review.skipped_exercise_ids or []) if last_review else set()
     avoid_exercise_codes = set(review_adjustment.get("avoid_exercise_codes") or [])
     prefer_exercise_codes = set(review_adjustment.get("prefer_exercise_codes") or [])
@@ -350,8 +396,16 @@ async def generate_workout_session(
     goal = profile.goal or Goal.maintenance
     params = GOAL_PARAMS[goal]
     mod = MODIFIER_DELTA[modifier]
-    sets_count = max(1, params["sets"] + mod["sets"] + int(review_adjustment["sets_delta"]))
-    rest_secs = round(params["rest"] * mod["rest_factor"] * float(review_adjustment["rest_factor"]))
+    sets_count = max(
+        1,
+        params["sets"] + mod["sets"] + int(review_adjustment["sets_delta"]) + int(health_adjustment["sets_delta"]),
+    )
+    rest_secs = round(
+        params["rest"]
+        * mod["rest_factor"]
+        * float(review_adjustment["rest_factor"])
+        * float(health_adjustment["rest_factor"])
+    )
     if modifier == "hard":
         rest_secs = max(rest_secs, 120)
     time_per_ex = sets_count * (45 + rest_secs) / 60
@@ -382,7 +436,12 @@ async def generate_workout_session(
                 muscle_factor *= 0.9
             if muscle_code in focus_muscle_groups and muscle_code not in reduce_muscle_groups:
                 muscle_factor *= 1.03
-            weight *= mod["weight_pct"] * float(review_adjustment["weight_factor"]) * muscle_factor
+            weight *= (
+                mod["weight_pct"]
+                * float(review_adjustment["weight_factor"])
+                * float(health_adjustment["weight_factor"])
+                * muscle_factor
+            )
             weight = round(weight, 2)
 
         se = SessionExercise(

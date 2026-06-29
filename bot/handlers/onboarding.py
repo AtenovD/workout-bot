@@ -12,7 +12,7 @@ from models.user import User
 from models.profile import Profile, Gender, Goal, ExperienceLevel
 from models.user_equipment import UserEquipment
 from models.calibration import CalibrationAnswer
-from models.exercise import Equipment, EquipmentCategory
+from models.exercise import Exercise, Equipment, EquipmentCategory
 from services.calibration import process_calibration
 from bot.utils.message_edit import safe_edit_text
 
@@ -47,10 +47,16 @@ def experience_kb():
 def health_kb(selected: list[str]):
     flags = [
         ("Колени: боль, травмы, нестабильность", "knee_injury"),
+        ("Колени: иногда болят, но без диагноза", "knee_pain"),
         ("Поясница: боль, протрузии, дискомфорт", "lower_back_pain"),
+        ("Грыжа/протрузия диска позвоночника", "spinal_disc_hernia"),
         ("Плечи: боль, импинджмент, ограничение движения", "shoulder_issue"),
         ("Давление / сердце: осторожнее с пульсом и отказом", "hypertension"),
-        ("Грыжа / протрузия: избегать рискованных осевых нагрузок", "hernia"),
+        ("Сердце: диагноз или запрет на тяжёлые нагрузки", "heart_condition"),
+        ("Грыжа пищевода / хиатальная", "hiatal_hernia"),
+        ("Паховая грыжа", "inguinal_hernia"),
+        ("Пупочная / брюшная грыжа", "umbilical_hernia"),
+        ("Другая грыжа / не уверен", "hernia"),
         ("Нет ограничений", "none"),
     ]
     rows = []
@@ -91,12 +97,20 @@ async def build_category_kb() -> InlineKeyboardMarkup:
 
 
 async def build_equipment_items_kb(session: AsyncSession, selected_ids: list[int], category: str) -> InlineKeyboardMarkup:
+    active_result = await session.execute(
+        select(Exercise.required_equipment_id)
+        .where(Exercise.is_active == True, Exercise.required_equipment_id.is_not(None))
+        .distinct()
+    )
+    active_equipment_ids = {row[0] for row in active_result.fetchall() if row[0]}
     result = await session.execute(
         select(Equipment).where(Equipment.category == category).order_by(Equipment.id)
     )
     items = []
     seen_labels: set[str] = set()
     for eq in result.scalars().all():
+        if eq.category != EquipmentCategory.none and eq.id not in active_equipment_ids:
+            continue
         label_key = (eq.name_ru or eq.name_en or eq.code).strip().lower()
         if label_key in seen_labels:
             continue
@@ -257,8 +271,9 @@ async def step_health_flags(callback: CallbackQuery, state: FSMContext):
     await state.set_state(OnboardingStates.health_flags)
     await safe_edit_text(callback.message,
         "🏥 <b>Шаг 8 / 11 — Здоровье и ограничения</b>\n\n"
-        "Отметь всё, что может влиять на подбор упражнений. Я буду осторожнее с нагрузкой, "
-        "амплитудой и упражнениями, которые могут раздражать проблемную зону.",
+        "Отметь всё, что может влиять на подбор упражнений. Это не диагноз и не замена врачу, "
+        "но бот будет осторожнее с осевой нагрузкой, давлением внутри живота, отказными подходами "
+        "и упражнениями, которые могут раздражать проблемную зону.",
         reply_markup=health_kb([]), parse_mode="HTML"
     )
 

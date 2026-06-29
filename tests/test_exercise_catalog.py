@@ -44,6 +44,18 @@ def test_active_exercise_catalog_has_valid_references_and_media():
     assert bad == []
 
 
+def test_equipment_catalog_has_clean_labels():
+    names = [item["name_ru"] for item in seed_data.EQUIPMENT_DATA]
+    codes = [item["code"] for item in seed_data.EQUIPMENT_DATA]
+
+    assert len(names) == len(set(names))
+    assert len(codes) == len(set(codes))
+    assert "Тяга верхнего блока" not in names
+    assert "Жим ногами" not in names
+    assert "Тренажёр верхней тяги" in names
+    assert "Тренажёр жим ногами" in names
+
+
 def test_trx_and_hiit_are_not_seeded_as_active_bodyweight_gym_work():
     by_code = {ex["code"]: _normalized(ex) for ex in _seed_exercises()}
 

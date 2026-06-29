@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from models.user import User
-from models.exercise import Equipment, EquipmentCategory
+from models.exercise import Exercise, Equipment, EquipmentCategory
 from models.user_equipment import UserEquipment
 from bot.utils.module_visuals import send_module_visual
 from bot.utils.message_edit import safe_edit_text
@@ -39,6 +39,15 @@ async def _get_user_equipment_ids(session: AsyncSession, user_id: int) -> set[in
         select(UserEquipment.equipment_id).where(UserEquipment.user_id == user_id)
     )
     return {row[0] for row in result.fetchall()}
+
+
+async def _active_equipment_ids(session: AsyncSession) -> set[int]:
+    result = await session.execute(
+        select(Exercise.required_equipment_id)
+        .where(Exercise.is_active == True, Exercise.required_equipment_id.is_not(None))
+        .distinct()
+    )
+    return {row[0] for row in result.fetchall() if row[0]}
 
 
 def _equipment_label(eq: Equipment, selected: bool) -> str:
@@ -71,7 +80,10 @@ async def _build_category_items_kb(
     )
     items = []
     seen_labels: set[str] = set()
+    active_equipment_ids = await _active_equipment_ids(session)
     for eq in eq_result.scalars().all():
+        if eq.category != EquipmentCategory.none and eq.id not in active_equipment_ids:
+            continue
         label_key = (eq.name_ru or eq.name_en or eq.code).strip().lower()
         if label_key in seen_labels:
             continue
