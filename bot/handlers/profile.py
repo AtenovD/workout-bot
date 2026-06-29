@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import date
+from datetime import date, datetime
 
 from models.user import User
 from models.profile import Profile, Goal, ExperienceLevel
@@ -93,7 +93,7 @@ async def save_new_weight(message: Message, state: FSMContext, user: User, sessi
     if profile:
         profile.current_weight_kg = weight
 
-    session.add(BodyMeasurement(user_id=user.id, date=date.today(), weight_kg=weight))
+    session.add(BodyMeasurement(user_id=user.id, recorded_at=datetime.utcnow(), weight_kg=weight))
     await session.commit()
     await state.clear()
     await message.answer(f"✅ Вес обновлён: {weight} кг", reply_markup=main_menu_keyboard())

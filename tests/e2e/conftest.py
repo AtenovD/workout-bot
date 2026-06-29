@@ -11,7 +11,7 @@ from aiogram import Bot, Dispatcher, BaseMiddleware
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.telegram import TelegramAPIServer
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import Message, CallbackQuery, Update
+from aiogram.types import Message, CallbackQuery, Update, User as TelegramUser
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import (
 from core.db import Base
 from models.user import User
 from models.profile import Profile
+from models.gamification import UserStats
 from models.exercise import (
     Exercise,
     MuscleGroup,
@@ -70,14 +71,22 @@ class MockTelegramServer(TelegramAPIServer):
 class MockSession(AiohttpSession):
     def __init__(self):
         super().__init__(api=MockTelegramServer(base="http://testserver/bot", file="http://testserver/file/bot"))
+        self.requests = []
 
     async def make_request(self, bot, method, **kwargs):
+        method_name = getattr(method, "__api_method__", method.__class__.__name__)
+        payload = method.model_dump(warnings=False) if hasattr(method, "model_dump") else dict(kwargs)
+        self.requests.append({"method": method_name, "payload": payload})
+        if method_name == "answerCallbackQuery":
+            return True
+        if method_name == "getMe":
+            return TelegramUser(id=123456, is_bot=True, first_name="TestBot", username="test_workout_bot")
         return {
             "ok": True,
             "result": {
-                "message_id": kwargs.get("message_id", 42),
+                "message_id": payload.get("message_id", 42),
                 "date": int(datetime.utcnow().timestamp()),
-                "chat": {"id": kwargs.get("chat_id", 123456), "type": "private"},
+                "chat": {"id": payload.get("chat_id", 123456), "type": "private"},
                 "from": {"id": 123456, "is_bot": True, "first_name": "TestBot"},
             },
         }
@@ -165,26 +174,39 @@ async def dispatcher(event_loop, engine):
     dp.update.middleware(TestDbSessionMiddleware(session_maker))
     dp.update.middleware(TestUserMiddleware())
 
-    # Include all routers (global singletons, attached once per session)
-    from bot.handlers.onboarding import router as onboarding_router
-    from bot.handlers.menu import router as menu_router
+    # Include routers in the same order as bot/main.py.
+    from bot.handlers import onboarding, workout, progress, stats, profile, achievements, schedule, menu
     from bot.handlers.calibration import router as calibration_router
-    from bot.handlers.workout import router as workout_router
-    from bot.handlers.progress import router as progress_router
-    from bot.handlers.schedule import router as schedule_router
-    from bot.handlers.challenge import router as challenge_router
     from bot.handlers.equipment import router as equipment_router
-    from bot.handlers.achievements import router as achievements_router
+    from bot.handlers.gamification import router as gamification_router
+    from bot.handlers.reminder import router as reminder_router
+    from bot.handlers.measurements import router as measurements_router
+    from bot.handlers.referral import router as referral_router
+    from bot.handlers.settings import router as settings_router
+    from bot.handlers.challenge import router as challenge_router
+    from bot.handlers.help import router as help_router
+    from bot.handlers.admin import router as admin_router
 
-    dp.include_router(onboarding_router)
-    dp.include_router(menu_router)
-    dp.include_router(calibration_router)
-    dp.include_router(workout_router)
-    dp.include_router(progress_router)
-    dp.include_router(schedule_router)
-    dp.include_router(challenge_router)
-    dp.include_router(equipment_router)
-    dp.include_router(achievements_router)
+    dp.include_routers(
+        onboarding.router,
+        menu.router,
+        calibration_router,
+        equipment_router,
+        workout.router,
+        gamification_router,
+        measurements_router,
+        reminder_router,
+        referral_router,
+        settings_router,
+        challenge_router,
+        help_router,
+        admin_router,
+        progress.router,
+        stats.router,
+        profile.router,
+        achievements.router,
+        schedule.router,
+    )
 
     # Start polling in background (will run for entire session)
     # Note: we don't create bot here, it's passed per-test
@@ -303,6 +325,7 @@ async def registered_user(engine, seed_exercises):
         existing = await session.execute(select(User).where(User.telegram_id == 123456789))
         existing_user = existing.scalar_one_or_none()
         if existing_user:
+            await session.execute(delete(UserStats).where(UserStats.user_id == existing_user.id))
             await session.execute(delete(Profile).where(Profile.user_id == existing_user.id))
         await session.execute(delete(User).where(User.telegram_id == 123456789))
         await session.commit()
@@ -324,9 +347,13 @@ async def registered_user(engine, seed_exercises):
             current_weight_kg=80.0,
             goal="mass_gain",
             experience_level="intermediate",
+            training_structure="fullbody",
+            preferred_duration_min=45,
+            health_flags=[],
             calibrated_at=datetime.utcnow(),
         )
         session.add(profile)
+        session.add(UserStats(id=1, user_id=user.id, level=1, total_xp=0))
         await session.flush()
         await session.commit()
 

@@ -9,7 +9,6 @@ from models.user import User
 from models.workout import WorkoutSession, SessionStatus
 from models.body_measurement import BodyMeasurement
 from models.personal_record import PersonalRecord
-from core.db import AsyncSessionLocal
 from bot.keyboards.main_menu import main_menu_keyboard
 from bot.texts import t
 from bot.utils.module_visuals import send_module_visual
@@ -64,17 +63,16 @@ async def save_language(cb: CallbackQuery, user: User, session: AsyncSession):
     await cb.answer()
 
 @router.callback_query(F.data == "settings:export")
-async def export_data(cb: CallbackQuery, user: User):
-    async with AsyncSessionLocal() as session:
-        sessions = (await session.execute(
-            select(WorkoutSession).where(WorkoutSession.user_id == user.id)
-        )).scalars().all()
-        prs = (await session.execute(
-            select(PersonalRecord).where(PersonalRecord.user_id == user.id)
-        )).scalars().all()
-        measurements = (await session.execute(
-            select(BodyMeasurement).where(BodyMeasurement.user_id == user.id)
-        )).scalars().all()
+async def export_data(cb: CallbackQuery, user: User, session: AsyncSession):
+    sessions = (await session.execute(
+        select(WorkoutSession).where(WorkoutSession.user_id == user.id)
+    )).scalars().all()
+    prs = (await session.execute(
+        select(PersonalRecord).where(PersonalRecord.user_id == user.id)
+    )).scalars().all()
+    measurements = (await session.execute(
+        select(BodyMeasurement).where(BodyMeasurement.user_id == user.id)
+    )).scalars().all()
 
     data = {
         "sessions": [{"id": s.id, "status": s.status.value if s.status else None,
@@ -88,7 +86,7 @@ async def export_data(cb: CallbackQuery, user: User):
             }
             for pr in prs
         ],
-        "measurements": [{"date": str(m.date), "weight_kg": m.weight_kg} for m in measurements],
+        "measurements": [{"date": str(m.recorded_at), "weight_kg": m.weight_kg} for m in measurements],
     }
     payload = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
     await cb.message.answer_document(
@@ -113,12 +111,11 @@ async def reset_confirm(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "settings:reset_do")
-async def reset_do(cb: CallbackQuery, user: User):
-    async with AsyncSessionLocal() as session:
-        await session.execute(delete(WorkoutSession).where(WorkoutSession.user_id == user.id))
-        await session.execute(delete(PersonalRecord).where(PersonalRecord.user_id == user.id))
-        await session.execute(delete(BodyMeasurement).where(BodyMeasurement.user_id == user.id))
-        await session.commit()
+async def reset_do(cb: CallbackQuery, user: User, session: AsyncSession):
+    await session.execute(delete(WorkoutSession).where(WorkoutSession.user_id == user.id))
+    await session.execute(delete(PersonalRecord).where(PersonalRecord.user_id == user.id))
+    await session.execute(delete(BodyMeasurement).where(BodyMeasurement.user_id == user.id))
+    await session.commit()
     await safe_edit_text(cb.message,
         "🗑 <b>Прогресс сброшен.</b>\n\nВсе тренировки, рекорды и замеры удалены.",
         reply_markup=main_menu_keyboard(lang=user.language_code or "ru"),

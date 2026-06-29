@@ -2,6 +2,7 @@ from sqlalchemy import BigInteger, Integer, String, Enum, Float, Numeric, Date, 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 from core.db import Base
+from models.types import sqlite_bigint_pk
 
 class AchievementCategory(str, enum.Enum):
     consistency = "consistency"
@@ -18,7 +19,7 @@ class AchievementTier(str, enum.Enum):
 
 class UserStats(Base):
     __tablename__ = "user_stats"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(sqlite_bigint_pk, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), unique=True)
     level: Mapped[int] = mapped_column(Integer, default=1)
     total_xp: Mapped[int] = mapped_column(Integer, default=0)
@@ -33,7 +34,7 @@ class UserStats(Base):
 
 class Achievement(Base):
     __tablename__ = "achievements"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(sqlite_bigint_pk, primary_key=True, autoincrement=True)
     code: Mapped[str] = mapped_column(String(64), unique=True)
     name: Mapped[str] = mapped_column(String(128))
     description: Mapped[str] = mapped_column(String(512))
@@ -45,7 +46,7 @@ class Achievement(Base):
 
 class UserAchievement(Base):
     __tablename__ = "user_achievements"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(sqlite_bigint_pk, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True)
     achievement_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("achievements.id"))
     unlocked_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())

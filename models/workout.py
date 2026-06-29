@@ -2,6 +2,7 @@ from sqlalchemy import BigInteger, Integer, String, Enum, Boolean, ForeignKey, D
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 from core.db import Base
+from models.types import sqlite_bigint_pk
 
 class SessionStatus(str, enum.Enum):
     planned = "planned"
@@ -16,7 +17,7 @@ class DifficultyModifier(str, enum.Enum):
 
 class WorkoutSession(Base):
     __tablename__ = "workout_sessions"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(sqlite_bigint_pk, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True)
     plan_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("workout_plans.id"))
     scheduled_date: Mapped[Date | None] = mapped_column(Date)
@@ -40,7 +41,7 @@ class WorkoutSession(Base):
 
 class WorkoutPlan(Base):
     __tablename__ = "workout_plans"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(sqlite_bigint_pk, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True)
     name: Mapped[str] = mapped_column(String(128))
     structure: Mapped[str] = mapped_column(String(32))
@@ -55,7 +56,7 @@ class WorkoutPlan(Base):
 
 class SessionExercise(Base):
     __tablename__ = "session_exercises"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(sqlite_bigint_pk, primary_key=True, autoincrement=True)
     session_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workout_sessions.id"), index=True)
     exercise_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("exercises.id"))
     order_index: Mapped[int] = mapped_column(Integer, default=0)
@@ -68,7 +69,7 @@ class SessionExercise(Base):
 
 class ExerciseSet(Base):
     __tablename__ = "exercise_sets"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(sqlite_bigint_pk, primary_key=True, autoincrement=True)
     session_exercise_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("session_exercises.id"), index=True)
     set_number: Mapped[int] = mapped_column(Integer)
     reps_done: Mapped[int | None] = mapped_column(Integer)
@@ -81,7 +82,7 @@ class ExerciseSet(Base):
 class WorkoutReview(Base):
     __tablename__ = "workout_reviews"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(sqlite_bigint_pk, primary_key=True, autoincrement=True)
     workout_session_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workout_sessions.id"), index=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True)
     intensity_feedback: Mapped[str | None] = mapped_column(String(16))

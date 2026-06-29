@@ -2,7 +2,7 @@
 Stats chart service — generates progress chart images using matplotlib.
 """
 import io
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import matplotlib
 matplotlib.use("Agg")  # non-interactive backend
@@ -71,19 +71,19 @@ async def generate_volume_chart(session: AsyncSession, user: User, days: int = 3
 async def generate_weight_chart(session: AsyncSession, user: User, days: int = 90) -> bytes:
     """Generate body weight trend chart."""
     from models.body_measurement import BodyMeasurement
-    since = date.today() - timedelta(days=days)
+    since = datetime.combine(date.today() - timedelta(days=days), datetime.min.time())
 
     res = await session.execute(
-        select(BodyMeasurement.date, BodyMeasurement.weight_kg)
-        .where(BodyMeasurement.user_id == user.id, BodyMeasurement.date >= since)
-        .order_by(BodyMeasurement.date)
+        select(BodyMeasurement.recorded_at, BodyMeasurement.weight_kg)
+        .where(BodyMeasurement.user_id == user.id, BodyMeasurement.recorded_at >= since)
+        .order_by(BodyMeasurement.recorded_at)
     )
     rows = res.all()
 
     if not rows:
         return _empty_chart("Нет данных о весе")
 
-    dates = [r.date for r in rows]
+    dates = [r.recorded_at.date() if hasattr(r.recorded_at, "date") else r.recorded_at for r in rows]
     weights = [float(r.weight_kg) for r in rows]
 
     fig, ax = plt.subplots(figsize=(8, 4), facecolor="#1a1a2e")
