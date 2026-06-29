@@ -8,6 +8,7 @@ from sqlalchemy import select, and_, desc, or_
 from models.profile import Profile, Goal, TrainingStructure
 from models.exercise import Exercise, Equipment, EquipmentCategory, ExerciseType, MuscleGroup
 from models.workout import SessionExercise, WorkoutSession, ExerciseSet, WorkoutReview
+from services.training_strategy import parse_strategy_note, strategy_context_for_next_session
 
 FULLBODY_GROUPS = ["chest", "back", "legs", "shoulders", "biceps", "triceps", "core"]
 
@@ -234,8 +235,12 @@ async def _get_rotation_idx(session: AsyncSession, user_id: int) -> int:
         .order_by(desc(WorkoutSession.created_at)).limit(1)
     )
     last = result.scalar_one_or_none()
-    if last and last.notes and last.notes.startswith("rot:"):
-        return int(last.notes.split(":")[1]) + 1
+    if last and last.notes:
+        note = parse_strategy_note(last.notes)
+        try:
+            return int(note.get("rot", "0")) + 1
+        except ValueError:
+            return 0
     return 0
 
 
@@ -326,6 +331,8 @@ async def generate_workout_session(
         rotations = SPLIT_ROTATIONS.get(split, SPLIT_ROTATIONS["upper_lower"])
         target_groups = rotations[rotation_idx % len(rotations)]
 
+    strategy_context = await strategy_context_for_next_session(session, profile, target_groups)
+
     # Get muscle group IDs. Production data uses detailed codes (lats/quadriceps),
     # while tests and old installs may still use broad codes (back/legs).
     mg_res = await session.execute(select(MuscleGroup))
@@ -398,11 +405,14 @@ async def generate_workout_session(
     mod = MODIFIER_DELTA[modifier]
     sets_count = max(
         1,
-        params["sets"] + mod["sets"] + int(review_adjustment["sets_delta"]) + int(health_adjustment["sets_delta"]),
+        round((params["sets"] + mod["sets"]) * strategy_context.volume_factor)
+        + int(review_adjustment["sets_delta"])
+        + int(health_adjustment["sets_delta"]),
     )
     rest_secs = round(
         params["rest"]
         * mod["rest_factor"]
+        * strategy_context.rest_factor
         * float(review_adjustment["rest_factor"])
         * float(health_adjustment["rest_factor"])
     )
@@ -438,6 +448,7 @@ async def generate_workout_session(
                 muscle_factor *= 1.03
             weight *= (
                 mod["weight_pct"]
+                * strategy_context.intensity_factor
                 * float(review_adjustment["weight_factor"])
                 * float(health_adjustment["weight_factor"])
                 * muscle_factor
@@ -452,6 +463,8 @@ async def generate_workout_session(
         result_list.append((se, ex))
 
     ws = await session.get(WorkoutSession, workout_session_id)
-    if ws: ws.notes = f"rot:{rotation_idx}"
+    if ws:
+        ws.plan_id = strategy_context.plan.id
+        ws.notes = f"rot:{rotation_idx};{strategy_context.note}"
     await session.flush()
     return result_list

@@ -13,6 +13,7 @@ from services.workout_generator import (
     _starting_weight_for,
     _target_reps_range,
 )
+from services.training_strategy import format_strategy_note_title, parse_strategy_note
 
 
 def _exercise(
@@ -156,3 +157,14 @@ def test_health_flags_reduce_load_and_add_rest():
     assert adjustment["sets_delta"] == -2
     assert adjustment["weight_factor"] < 0.8
     assert adjustment["rest_factor"] > 1.3
+
+
+def test_strategy_notes_are_parseable_with_rotation_prefix():
+    note = "rot:4;plan:9;week:3;phase:progression;session:1;focus:chest,back"
+
+    parsed = parse_strategy_note(note)
+
+    assert parsed["rot"] == "4"
+    assert parsed["week"] == "3"
+    assert parsed["phase"] == "progression"
+    assert format_strategy_note_title(note) == "Неделя прогрессии · неделя 3/6"

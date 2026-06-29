@@ -23,6 +23,7 @@ from services.deload_on_return import apply_return_deload
 from services.rest_timer import run_rest_timer
 from services.workout_summary import build_workout_summary, format_summary_message
 from services.workout_structure import format_exercise_card, format_workout_overview, warmup_targets_for
+from services.training_strategy import format_strategy_note_title
 from services.ai_coach import analyze_workout_review
 import asyncio
 from bot.utils.message_edit import safe_edit_text
@@ -170,6 +171,7 @@ async def choose_modifier(callback: CallbackQuery, state: FSMContext, user: User
     await session.refresh(ws)
     total_time = sum(se.target_sets * (45 + se.rest_seconds) for se, _ in exercises) // 60 + 10
     muscle_names = await _muscle_names_by_id(session)
+    strategy_title = format_strategy_note_title(ws.notes)
     await state.update_data(workout_session_id=ws.id)
     await state.set_state(WorkoutStates.overview)
     await safe_edit_text(callback.message,
@@ -181,6 +183,7 @@ async def choose_modifier(callback: CallbackQuery, state: FSMContext, user: User
             profile.training_structure,
             profile.split_type,
             muscle_names,
+            strategy_title,
         ),
         reply_markup=overview_kb(ws.id), parse_mode="HTML",
     )

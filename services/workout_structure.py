@@ -177,6 +177,7 @@ def format_workout_overview(
     training_structure: TrainingStructure | str | None = None,
     split_type: SplitType | str | None = None,
     muscle_names_by_id: dict[int, str] | None = None,
+    strategy_title: str | None = None,
 ) -> str:
     structured = structure_workout(exercises, modifier)
     warmup_items = [item for item in structured if item.warmups]
@@ -191,6 +192,9 @@ def format_workout_overview(
         "2. Суставная разминка: плечи, локти, таз, колени, голеностоп.",
         "3. Активация: 1-2 лёгких подхода на мышцы первой базы.",
     ]
+
+    if strategy_title:
+        lines.insert(3, f"Стратегия: <b>{strategy_title}</b>")
 
     if warmup_items:
         lines.append("4. Подводящие подходы в боте:")

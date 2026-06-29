@@ -45,8 +45,13 @@ class WorkoutPlan(Base):
     name: Mapped[str] = mapped_column(String(128))
     structure: Mapped[str] = mapped_column(String(32))
     split_type: Mapped[str | None] = mapped_column(String(32))
+    cycle_length_weeks: Mapped[int] = mapped_column(Integer, default=6)
+    current_week: Mapped[int] = mapped_column(Integer, default=1)
+    current_session_index: Mapped[int] = mapped_column(Integer, default=0)
+    strategy: Mapped[dict | None] = mapped_column(JSON)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 class SessionExercise(Base):
     __tablename__ = "session_exercises"

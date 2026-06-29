@@ -55,11 +55,13 @@ def test_workout_overview_shows_format_and_muscles():
         TrainingStructure.split,
         SplitType.upper_lower,
         {1: "Грудь", 2: "Спина"},
+        "Неделя прогрессии · неделя 2/6",
     )
 
     assert "Перед рабочими весами" in text
     assert "Подводящие подходы" in text
     assert "Формат: <b>Сплит · Верх/низ</b>" in text
+    assert "Стратегия: <b>Неделя прогрессии · неделя 2/6</b>" in text
     assert "Жим лёжа · <i>Грудь</i>" in text
     assert "Тяга штанги · <i>Спина</i>" in text
     assert "Силовой блок" in text
