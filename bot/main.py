@@ -17,6 +17,7 @@ from core.db import AsyncSessionLocal
 from bot.middlewares.db import DbSessionMiddleware
 from bot.middlewares.user import UserMiddleware
 from bot.services.scheduler import start_scheduler
+from bot.services.admin_access import set_admins
 
 # Legacy module-style routers (existing handlers)
 from bot.handlers import (
@@ -40,7 +41,7 @@ from bot.handlers.referral import router as referral_router
 from bot.handlers.settings import router as settings_router
 from bot.handlers.challenge import router as challenge_router
 from bot.handlers.help import router as help_router
-from bot.handlers.admin import router as admin_router, set_admins
+from bot.handlers.admin import router as admin_router
 
 structlog.configure(
     wrapper_class=structlog.make_filtering_bound_logger(logging.INFO)

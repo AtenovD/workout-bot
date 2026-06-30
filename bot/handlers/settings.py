@@ -57,7 +57,7 @@ async def save_language(cb: CallbackQuery, user: User, session: AsyncSession):
     labels = {"ru": "Русский", "en": "English"}
     await safe_edit_text(cb.message,
         t("language_changed", language_code, language=labels[language_code]),
-        reply_markup=main_menu_keyboard(lang=language_code),
+        reply_markup=main_menu_keyboard(lang=language_code, telegram_id=user.telegram_id),
         parse_mode="HTML",
     )
     await cb.answer()
@@ -118,6 +118,6 @@ async def reset_do(cb: CallbackQuery, user: User, session: AsyncSession):
     await session.commit()
     await safe_edit_text(cb.message,
         "🗑 <b>Прогресс сброшен.</b>\n\nВсе тренировки, рекорды и замеры удалены.",
-        reply_markup=main_menu_keyboard(lang=user.language_code or "ru"),
+        reply_markup=main_menu_keyboard(lang=user.language_code or "ru", telegram_id=user.telegram_id),
         parse_mode="HTML"
     )

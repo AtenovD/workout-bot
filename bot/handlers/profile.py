@@ -96,7 +96,7 @@ async def save_new_weight(message: Message, state: FSMContext, user: User, sessi
     session.add(BodyMeasurement(user_id=user.id, recorded_at=datetime.utcnow(), weight_kg=weight))
     await session.commit()
     await state.clear()
-    await message.answer(f"✅ Вес обновлён: {weight} кг", reply_markup=main_menu_keyboard())
+    await message.answer(f"✅ Вес обновлён: {weight} кг", reply_markup=main_menu_keyboard(telegram_id=user.telegram_id))
 
 
 @router.callback_query(F.data == "prof:change_goal")

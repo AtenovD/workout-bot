@@ -694,7 +694,7 @@ async def finish_workout(callback: CallbackQuery, state: FSMContext, user: User,
     if plateau_notices:
         summary_text += "\n\n" + "\n".join(plateau_notices)
 
-    await callback.message.answer(summary_text, reply_markup=main_menu_keyboard(), parse_mode="HTML")
+    await callback.message.answer(summary_text, reply_markup=main_menu_keyboard(telegram_id=user.telegram_id), parse_mode="HTML")
     skipped = await _skipped_exercises(session, session_id)
     skipped_text = "скипов не было" if not skipped else "скипнул: " + ", ".join(ex.name_ru for _, ex in skipped)
     await callback.message.answer(
@@ -786,7 +786,7 @@ async def review_pain(callback: CallbackQuery, user: User, session: AsyncSession
         f"{pain_text}\n"
         "На следующей тренировке бот учтёт нагрузку, скипы и самочувствие."
         f"{ai_note}",
-        reply_markup=main_menu_keyboard(),
+        reply_markup=main_menu_keyboard(telegram_id=user.telegram_id),
         parse_mode="HTML",
     )
     await callback.answer("Сохранено")

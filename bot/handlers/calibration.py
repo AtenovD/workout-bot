@@ -85,7 +85,7 @@ async def process_cal_answer(callback: CallbackQuery, state: FSMContext, user: U
         await state.clear()
         await safe_edit_text(callback.message,
             "✅ <b>Калибровка завершена!</b>\n\nТеперь тренировки будут подбираться с учётом твоих предпочтений.\n\nНачни тренировку через главное меню!",
-            reply_markup=main_menu_keyboard(),
+            reply_markup=main_menu_keyboard(telegram_id=user.telegram_id),
             parse_mode="HTML"
         )
         await callback.answer()

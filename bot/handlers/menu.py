@@ -17,7 +17,7 @@ async def main_menu(event, user: User, **kwargs):
     lang = user.language_code or "ru"
     text = t("main_menu_title", lang)
     if isinstance(event, CallbackQuery):
-        await safe_edit_text(event.message, text, reply_markup=main_menu_keyboard(lang=lang), parse_mode="HTML")
+        await safe_edit_text(event.message, text, reply_markup=main_menu_keyboard(lang=lang, telegram_id=user.telegram_id), parse_mode="HTML")
         await event.answer()
     else:
-        await event.answer(text, reply_markup=main_menu_keyboard(lang=lang), parse_mode="HTML")
+        await event.answer(text, reply_markup=main_menu_keyboard(lang=lang, telegram_id=user.telegram_id), parse_mode="HTML")

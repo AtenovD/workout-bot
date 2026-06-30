@@ -61,4 +61,4 @@ async def show_stats(event, user: User, session: AsyncSession, **kwargs):
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="◀️ Назад", callback_data="menu:back")]])
         await safe_edit_text(msg, text, reply_markup=kb, parse_mode="HTML")
     else:
-        await msg.answer(text, reply_markup=main_menu_keyboard(), parse_mode="HTML")
+        await msg.answer(text, reply_markup=main_menu_keyboard(telegram_id=user.telegram_id), parse_mode="HTML")

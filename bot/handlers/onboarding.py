@@ -138,7 +138,7 @@ async def cmd_start(message: Message, state: FSMContext, user: User, session: As
             "Твоя тренировочная система готова: можно начать занятие, проверить прогресс, "
             "открыть достижения, настроить расписание или обновить инвентарь.\n\n"
             "Выбери модуль ниже — я подстрою следующий шаг под твой профиль.",
-            reply_markup=main_menu_keyboard(lang=user.language_code or "ru"),
+            reply_markup=main_menu_keyboard(lang=user.language_code or "ru", telegram_id=user.telegram_id),
             parse_mode="HTML",
         )
         return
@@ -462,6 +462,6 @@ async def finish_calibration(callback: CallbackQuery, state: FSMContext, user: U
         f"📅 <b>Дней в нед.:</b> {cal.recommended_days_per_week}\n"
         f"⏱ <b>Длительность:</b> {cal.recommended_duration_min} мин\n\n"
         "Готов к первой тренировке? 💪",
-        reply_markup=main_menu_keyboard(lang=data.get("language", user.language_code or "ru")),
+        reply_markup=main_menu_keyboard(lang=data.get("language", user.language_code or "ru"), telegram_id=user.telegram_id),
         parse_mode="HTML",
     )

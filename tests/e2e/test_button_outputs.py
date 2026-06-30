@@ -3,6 +3,8 @@ from datetime import datetime
 import pytest
 from aiogram import types
 
+from bot.services.admin_access import set_admins
+
 
 def _cb(data: str, uid: int = 123456789) -> types.CallbackQuery:
     return types.CallbackQuery(
@@ -23,6 +25,26 @@ async def _feed_callback(dispatcher, bot, session, data: str, uid: int = 1234567
     update = types.Update(
         update_id=abs(hash((data, datetime.utcnow().timestamp()))) % 10_000_000,
         callback_query=_cb(data, uid),
+    )
+    await dispatcher.feed_update(bot=bot, update=update, session=session)
+    return list(bot.session.requests)
+
+
+def _msg(text: str, uid: int = 123456789) -> types.Message:
+    return types.Message(
+        message_id=1,
+        date=datetime.utcnow(),
+        chat=types.Chat(id=uid, type="private", username="u", first_name="T"),
+        from_user=types.User(id=uid, is_bot=False, first_name="T", username="u"),
+        text=text,
+    )
+
+
+async def _feed_message(dispatcher, bot, session, text: str, uid: int = 123456789):
+    bot.session.requests.clear()
+    update = types.Update(
+        update_id=abs(hash((text, datetime.utcnow().timestamp()))) % 10_000_000,
+        message=_msg(text, uid),
     )
     await dispatcher.feed_update(bot=bot, update=update, session=session)
     return list(bot.session.requests)
@@ -240,3 +262,37 @@ async def test_review_and_reset_buttons_return_expected_outputs(dispatcher, bot,
 
     reset = await _feed_callback(dispatcher, bot, session, "settings:reset_do", registered_user.telegram_id)
     assert "Прогресс сброшен" in _texts(reset)
+
+
+@pytest.mark.asyncio
+async def test_admin_button_stats_and_segmented_broadcast(dispatcher, bot, session, registered_user):
+    admin_uid = 555777
+    set_admins([admin_uid])
+
+    non_admin_menu = await _feed_callback(dispatcher, bot, session, "menu:main", registered_user.telegram_id)
+    assert "menu:admin" not in _reply_callbacks(non_admin_menu)
+
+    admin_menu = await _feed_callback(dispatcher, bot, session, "menu:main", admin_uid)
+    assert "menu:admin" in _reply_callbacks(admin_menu)
+
+    panel = await _feed_callback(dispatcher, bot, session, "menu:admin", admin_uid)
+    rendered = _texts(panel) + "\n" + "\n".join(_reply_callbacks(panel))
+    assert "Админ-панель" in rendered
+    assert "Пользователи" in rendered
+    assert "Тренировки" in rendered
+    assert "admin:broadcast:ru" in rendered
+    assert "admin:broadcast:en" in rendered
+
+    ask_ru = await _feed_callback(dispatcher, bot, session, "admin:broadcast:ru", admin_uid)
+    assert "Рассылка RU" in _texts(ask_ru)
+
+    sent_ru = await _feed_message(dispatcher, bot, session, "<b>RU news</b>", admin_uid)
+    send_messages = [r for r in sent_ru if r["method"] == "sendMessage"]
+    assert any(r["payload"].get("chat_id") == registered_user.telegram_id for r in send_messages)
+    assert "Рассылка RU завершена" in _texts(sent_ru)
+
+    ask_en = await _feed_callback(dispatcher, bot, session, "admin:broadcast:en", admin_uid)
+    assert "Broadcast" in _texts(ask_en) or "Рассылка EN" in _texts(ask_en)
+
+    sent_en = await _feed_message(dispatcher, bot, session, "EN news", admin_uid)
+    assert "Рассылка EN завершена" in _texts(sent_en)

@@ -138,7 +138,7 @@ async def save_measurement(msg: Message, state: FSMContext, session: AsyncSessio
             lines.append(f"{MEASURE_LABELS[field]}: <b>{steps[field]}</b>")
     lines.append(f"\n📅 {datetime.utcnow().strftime('%d.%m.%Y')}")
 
-    await msg.answer("\n".join(lines), reply_markup=main_menu_keyboard(), parse_mode="HTML")
+    await msg.answer("\n".join(lines), reply_markup=main_menu_keyboard(telegram_id=msg.from_user.id), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "meas:history")

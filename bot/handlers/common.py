@@ -13,7 +13,7 @@ async def cmd_menu(message: Message, user: User):
     lang = user.language_code or "ru"
     await message.answer(
         t("main_menu_title", lang),
-        reply_markup=main_menu_keyboard(lang=lang),
+        reply_markup=main_menu_keyboard(lang=lang, telegram_id=user.telegram_id),
         parse_mode="HTML",
     )
 
