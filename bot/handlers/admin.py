@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -25,14 +25,16 @@ class AdminStates(StatesGroup):
 
 
 def _admin_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="📣 Рассылка RU", callback_data="admin:broadcast:ru"),
-            InlineKeyboardButton(text="📣 Broadcast EN", callback_data="admin:broadcast:en"),
-        ],
-        [InlineKeyboardButton(text="🔄 Обновить статистику", callback_data="menu:admin")],
-        [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:main")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📣 Рассылка RU", callback_data="admin:broadcast:ru"),
+                InlineKeyboardButton(text="📣 Broadcast EN", callback_data="admin:broadcast:en"),
+            ],
+            [InlineKeyboardButton(text="🔄 Обновить статистику", callback_data="menu:admin")],
+            [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:main")],
+        ]
+    )
 
 
 def _deny_message(user_id: int | None) -> bool:
@@ -80,7 +82,9 @@ async def _admin_stats(session: AsyncSession) -> str:
         await session.execute(select(func.count(WorkoutSession.id)).where(WorkoutSession.created_at >= month_ago))
     ).scalar() or 0
     volume_total = (
-        await session.execute(select(func.sum(WorkoutSession.total_volume_kg)).where(WorkoutSession.status == SessionStatus.completed))
+        await session.execute(
+            select(func.sum(WorkoutSession.total_volume_kg)).where(WorkoutSession.status == SessionStatus.completed)
+        )
     ).scalar() or 0
 
     reviews_total = (await session.execute(select(func.count(WorkoutReview.id)))).scalar() or 0
@@ -177,9 +181,7 @@ async def send_segment_broadcast(message: Message, state: FSMContext, session: A
         return
 
     users = (
-        await session.execute(
-            select(User).where(User.language_code == lang, User.status == UserStatus.active)
-        )
+        await session.execute(select(User).where(User.language_code == lang, User.status == UserStatus.active))
     ).scalars().all()
 
     sent = 0

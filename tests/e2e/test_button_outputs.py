@@ -293,7 +293,7 @@ async def test_admin_button_stats_and_segmented_broadcast(dispatcher, bot, sessi
     assert "Рассылка RU завершена" in _texts(sent_ru)
 
     ask_en = await _feed_callback(dispatcher, bot, session, "admin:broadcast:en", admin_uid)
-    assert "Broadcast" in _texts(ask_en) or "Рассылка EN" in _texts(ask_en)
+    assert "Рассылка EN" in _texts(ask_en)
 
     sent_en = await _feed_message(dispatcher, bot, session, "EN news", admin_uid)
     assert "Рассылка EN завершена" in _texts(sent_en)
