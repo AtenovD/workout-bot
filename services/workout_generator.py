@@ -8,6 +8,7 @@ from sqlalchemy import select, and_, desc, or_
 from models.profile import Profile, Goal, TrainingStructure
 from models.exercise import Exercise, Equipment, EquipmentCategory, ExerciseType, MuscleGroup
 from models.workout import SessionExercise, WorkoutSession, ExerciseSet, WorkoutReview
+from services.strength_calibration import calibrated_start_weight
 from services.training_strategy import parse_strategy_note, strategy_context_for_next_session
 
 FULLBODY_GROUPS = ["chest", "back", "legs", "shoulders", "biceps", "triceps", "core"]
@@ -432,14 +433,20 @@ async def generate_workout_session(
         target_reps = random.randint(reps_min, reps_max)
         last_w = await _get_last_weight(session, profile.user_id, ex.id)
         start_weight = _starting_weight_for(ex, equipment_codes_by_id)
-        if start_weight == 0.0 and last_w is None:
+        calibrated_weight = None if last_w is not None else await calibrated_start_weight(
+            session, profile.user_id, ex, target_reps
+        )
+        if start_weight == 0.0 and last_w is None and calibrated_weight is None:
             weight = 0.0
         else:
-            weight = calculate_next_weight(
-                last_weight_kg=last_w if last_w is not None else start_weight,
-                last_reps_done=target_reps, target_reps=target_reps,
-                last_rpe=None, exercise_type=ex.exercise_type.value, difficulty_modifier=modifier,
-            )
+            if calibrated_weight is not None and last_w is None:
+                weight = calibrated_weight
+            else:
+                weight = calculate_next_weight(
+                    last_weight_kg=last_w if last_w is not None else start_weight,
+                    last_reps_done=target_reps, target_reps=target_reps,
+                    last_rpe=None, exercise_type=ex.exercise_type.value, difficulty_modifier=modifier,
+                )
             muscle_code = next((code for code, mg_id in muscle_groups if mg_id == ex.primary_muscle_group_id), "")
             muscle_factor = 1.0
             if muscle_code in reduce_muscle_groups:

@@ -13,6 +13,7 @@ from services.workout_generator import (
     _starting_weight_for,
     _target_reps_range,
 )
+from services.strength_calibration import parse_strength_calibration, working_weight_from_e1rm
 from services.training_strategy import format_strategy_note_title, parse_strategy_note
 
 
@@ -97,6 +98,21 @@ def test_bodyweight_equipment_keeps_zero_starting_weight():
 
     assert _starting_weight_for(pullup, {5: "pullup_bar"}) == 0.0
     assert _starting_weight_for(dumbbell, {10: "dumbbell"}) > 0.0
+
+
+def test_strength_calibration_parser_reads_working_sets():
+    entries = parse_strength_calibration("Жим лежа 80x8\nПрисед 100 x 5\nBack row 65 10")
+
+    assert [entry["key"] for entry in entries] == ["bench_press", "squat", "row"]
+    assert entries[0]["weight_kg"] == 80
+    assert entries[0]["reps"] == 8
+    assert entries[0]["estimated_1rm"] > 100
+
+
+def test_strength_calibration_turns_e1rm_into_working_weight():
+    weight = working_weight_from_e1rm(100, target_reps=8, exercise_type=ExerciseType.compound)
+
+    assert weight == 70.0
 
 
 def test_review_feedback_adjusts_future_workout_load():

@@ -14,6 +14,7 @@ from models.user_equipment import UserEquipment
 from models.calibration import CalibrationAnswer
 from models.exercise import Exercise, Equipment, EquipmentCategory
 from services.calibration import process_calibration
+from services.strength_calibration import save_strength_calibration, strength_calibration_help
 from bot.utils.message_edit import safe_edit_text
 
 router = Router()
@@ -78,6 +79,18 @@ def duration_kb():
         [("20 мин", "cal:dur:20"), ("30 мин", "cal:dur:30")],
         [("45 мин", "cal:dur:45"), ("60 мин", "cal:dur:60")],
         [("90 мин", "cal:dur:90")],
+    )
+
+
+def strength_calibration_kb(lang: str = "ru"):
+    if lang == "en":
+        return _kb(
+            [("✍️ Enter working weights", "cal:strength:enter")],
+            [("⏭ Skip, calibrate in first workout", "cal:strength:skip")],
+        )
+    return _kb(
+        [("✍️ Ввести рабочие веса", "cal:strength:enter")],
+        [("⏭ Пропустить, откалибровать на первой тренировке", "cal:strength:skip")],
     )
 
 CATEGORY_META_ONBOARDING = {
@@ -386,10 +399,73 @@ async def step_duration(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(OnboardingStates.duration, F.data.startswith("cal:dur:"))
-async def finish_calibration(callback: CallbackQuery, state: FSMContext, user: User, session: AsyncSession):
+async def ask_strength_calibration(callback: CallbackQuery, state: FSMContext, user: User, session: AsyncSession):
     duration = int(callback.data.split(":")[2])
     await state.update_data(preferred_duration_min=duration)
+    await state.set_state(OnboardingStates.strength_calibration)
+    lang = (await state.get_data()).get("language", user.language_code or "ru")
+    await safe_edit_text(
+        callback.message,
+        strength_calibration_help(lang),
+        reply_markup=strength_calibration_kb(lang),
+        parse_mode="HTML",
+    )
+    await callback.answer()
+
+
+@router.callback_query(OnboardingStates.strength_calibration, F.data == "cal:strength:enter")
+async def prompt_strength_lines(callback: CallbackQuery, state: FSMContext, user: User):
+    lang = (await state.get_data()).get("language", user.language_code or "ru")
+    if lang == "en":
+        text = (
+            "Send your working weights in one message.\n\n"
+            "Examples:\n"
+            "<code>Bench press 80x8</code>\n"
+            "<code>Squat 100x5</code>\n"
+            "<code>Back row 65x10</code>\n\n"
+            "Use a normal hard working set, not a one-rep max."
+        )
+    else:
+        text = (
+            "Отправь рабочие веса одним сообщением.\n\n"
+            "Примеры:\n"
+            "<code>Жим лежа 80x8</code>\n"
+            "<code>Присед 100x5</code>\n"
+            "<code>Тяга на спину 65x10</code>\n\n"
+            "Пиши обычный тяжелый рабочий подход, не разовый максимум."
+        )
+    await safe_edit_text(callback.message, text, parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(OnboardingStates.strength_calibration, F.data == "cal:strength:skip")
+async def skip_strength_calibration(callback: CallbackQuery, state: FSMContext, user: User, session: AsyncSession):
+    await _complete_onboarding(callback.message, state, user, session, strength_entries=[])
+    await callback.answer()
+
+
+@router.message(OnboardingStates.strength_calibration, F.text)
+async def save_strength_lines(message: Message, state: FSMContext, user: User, session: AsyncSession):
+    entries = await save_strength_calibration(session, user.id, message.text or "")
+    if not entries:
+        lang = (await state.get_data()).get("language", user.language_code or "ru")
+        if lang == "en":
+            await message.answer(
+                "I could not recognize the weights. Try like: <code>Bench press 80x8</code>, or press skip in the previous message.",
+                parse_mode="HTML",
+            )
+        else:
+            await message.answer(
+                "Не смог распознать веса. Попробуй так: <code>Жим лежа 80x8</code>, или нажми пропуск в предыдущем сообщении.",
+                parse_mode="HTML",
+            )
+        return
+    await _complete_onboarding(message, state, user, session, strength_entries=entries)
+
+
+async def _complete_onboarding(event_message: Message, state: FSMContext, user: User, session: AsyncSession, strength_entries: list[dict]):
     data = await state.get_data()
+    duration = int(data["preferred_duration_min"])
     await state.clear()
 
     # ── Run calibration service ──
@@ -445,23 +521,58 @@ async def finish_calibration(callback: CallbackQuery, state: FSMContext, user: U
             session.add(UserEquipment(user_id=user.id, equipment_id=eq_id))
 
     # ── Save calibration log ──
+    data["strength_calibration"] = strength_entries
     session.add(CalibrationAnswer(user_id=user.id, question_key="full_calibration", answer=data))
     await session.commit()
 
     # ── Build summary ──
+    lang = data.get("language", user.language_code or "ru")
     goals_ru = {"mass_gain": "💪 Набор массы", "maintenance": "⚖️ Поддержка", "weight_loss": "🔥 Похудание", "cardio": "🏃 Кардио"}
+    goals_en = {"mass_gain": "💪 Muscle gain", "maintenance": "⚖️ Maintenance", "weight_loss": "🔥 Fat loss", "cardio": "🏃 Cardio"}
     struct_label = "Всё тело (Fullbody)" if cal.training_structure.value == "fullbody" else f"Сплит — {cal.split_type.value if cal.split_type else ''}"
+    if lang == "en":
+        struct_label = "Full body" if cal.training_structure.value == "fullbody" else f"Split — {cal.split_type.value if cal.split_type else ''}"
     intensity_bar = "🟩" * cal.intensity_level + "⬜" * (5 - cal.intensity_level)
 
-    await safe_edit_text(callback.message,
-        "✅ <b>Калибровка завершена!</b>\n\n"
-        "Твой профиль тренировок:\n\n"
-        f"🎯 <b>Цель:</b> {goals_ru.get(data['goal'], data['goal'])}\n"
-        f"📊 <b>Структура:</b> {struct_label}\n"
-        f"⚡ <b>Интенсивность:</b> {intensity_bar} ({cal.intensity_level}/5)\n"
-        f"📅 <b>Дней в нед.:</b> {cal.recommended_days_per_week}\n"
-        f"⏱ <b>Длительность:</b> {cal.recommended_duration_min} мин\n\n"
-        "Готов к первой тренировке? 💪",
-        reply_markup=main_menu_keyboard(lang=data.get("language", user.language_code or "ru"), telegram_id=user.telegram_id),
+    if lang == "en":
+        if strength_entries:
+            saved = ", ".join(f"{item['label_en']} {item['weight_kg']:g}x{item['reps']}" for item in strength_entries)
+            strength_text = f"🏋️ <b>Working weights:</b> saved ({saved})\n"
+        else:
+            strength_text = "🏋️ <b>Working weights:</b> first workout will be diagnostic\n"
+        summary_text = (
+            "✅ <b>Calibration complete!</b>\n\n"
+            "Your training profile:\n\n"
+            f"🎯 <b>Goal:</b> {goals_en.get(data['goal'], data['goal'])}\n"
+            f"📊 <b>Structure:</b> {struct_label}\n"
+            f"⚡ <b>Intensity:</b> {intensity_bar} ({cal.intensity_level}/5)\n"
+            f"📅 <b>Days/week:</b> {cal.recommended_days_per_week}\n"
+            f"⏱ <b>Duration:</b> {cal.recommended_duration_min} min\n\n"
+            f"{strength_text}\n"
+            "How it works: if weights were entered, I start from them. If not, the first workout collects signals through Hard/Easy buttons, and the next sessions get more accurate.\n\n"
+            "Ready for the first workout? 💪"
+        )
+    else:
+        if strength_entries:
+            saved = ", ".join(f"{item['label_ru']} {item['weight_kg']:g}x{item['reps']}" for item in strength_entries)
+            strength_text = f"🏋️ <b>Рабочие веса:</b> учтены ({saved})\n"
+        else:
+            strength_text = "🏋️ <b>Рабочие веса:</b> первая тренировка будет диагностической\n"
+        summary_text = (
+            "✅ <b>Калибровка завершена!</b>\n\n"
+            "Твой профиль тренировок:\n\n"
+            f"🎯 <b>Цель:</b> {goals_ru.get(data['goal'], data['goal'])}\n"
+            f"📊 <b>Структура:</b> {struct_label}\n"
+            f"⚡ <b>Интенсивность:</b> {intensity_bar} ({cal.intensity_level}/5)\n"
+            f"📅 <b>Дней в нед.:</b> {cal.recommended_days_per_week}\n"
+            f"⏱ <b>Длительность:</b> {cal.recommended_duration_min} мин\n\n"
+            f"{strength_text}\n"
+            "Как это работает: если веса введены, я начну от них. Если нет — первая тренировка собирает сигналы через кнопки «Тяжело» и «Легко», а следующие занятия станут точнее.\n\n"
+            "Готов к первой тренировке? 💪"
+        )
+
+    await safe_edit_text(event_message,
+        summary_text,
+        reply_markup=main_menu_keyboard(lang=lang, telegram_id=user.telegram_id),
         parse_mode="HTML",
     )
