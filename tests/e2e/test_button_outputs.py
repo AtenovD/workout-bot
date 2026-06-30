@@ -149,6 +149,21 @@ async def test_settings_buttons_return_expected_outputs(dispatcher, bot, session
 
 
 @pytest.mark.asyncio
+async def test_english_onboarding_keeps_english_after_language_choice(dispatcher, bot, session):
+    uid = 777331
+
+    language = await _feed_callback(dispatcher, bot, session, "onboarding_lang:en", uid)
+    assert "Let's run a quick calibration" in _texts(language)
+    assert "cal:start" in _reply_callbacks(language)
+
+    gender = await _feed_callback(dispatcher, bot, session, "cal:start", uid)
+    rendered = _texts(gender)
+    assert "Step 1 / 11" in rendered
+    assert "Gender" in rendered
+    assert "Шаг 1 / 11" not in rendered
+
+
+@pytest.mark.asyncio
 async def test_equipment_buttons_follow_category_toggle_done_flow(dispatcher, bot, session, registered_user):
     category = await _feed_callback(dispatcher, bot, session, "eq_cat:stationary", registered_user.telegram_id)
     assert "Стационарный инвентарь" in _texts(category)
