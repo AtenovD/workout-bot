@@ -172,6 +172,7 @@ async def test_workout_buttons_generate_and_control_session(dispatcher, bot, ses
     assert begin_callbacks and regen_callbacks
 
     first_exercise = await _feed_callback(dispatcher, bot, session, begin_callbacks[0], registered_user.telegram_id)
+    assert {"sendAnimation", "sendPhoto", "editMessageText"}.intersection(_methods(first_exercise))
     assert "Рабочий подход" in _texts(first_exercise) or "Разминочный подход" in _texts(first_exercise)
     exercise_callbacks = _reply_callbacks(first_exercise)
     assert any(cb.startswith("set:done:") for cb in exercise_callbacks)

@@ -69,6 +69,42 @@ def exercise_technique_url(ex):
     return getattr(ex, "gif_url", None) or getattr(ex, "photo_url", None) or getattr(ex, "video_url", None)
 
 
+async def send_exercise_card(
+    message: Message,
+    text: str,
+    reply_markup: InlineKeyboardMarkup,
+    ex: Exercise,
+    *,
+    edit_text: bool = False,
+):
+    if getattr(ex, "gif_url", None):
+        try:
+            await message.answer_animation(
+                ex.gif_url,
+                caption=text,
+                reply_markup=reply_markup,
+                parse_mode="HTML",
+            )
+            return
+        except Exception:
+            pass
+    if getattr(ex, "photo_url", None):
+        try:
+            await message.answer_photo(
+                ex.photo_url,
+                caption=text,
+                reply_markup=reply_markup,
+                parse_mode="HTML",
+            )
+            return
+        except Exception:
+            pass
+    if edit_text:
+        await safe_edit_text(message, text, reply_markup=reply_markup, parse_mode="HTML")
+    else:
+        await message.answer(text, reply_markup=reply_markup, parse_mode="HTML")
+
+
 async def _muscle_names_by_id(session: AsyncSession) -> dict[int, str]:
     result = await session.execute(select(MuscleGroup.id, MuscleGroup.name_ru))
     return {mg_id: name for mg_id, name in result.all()}
@@ -221,22 +257,13 @@ async def begin_workout(callback: CallbackQuery, state: FSMContext, session: Asy
     )
     await state.set_state(WorkoutStates.logging_set)
 
-    # Send exercise media if available
-    if getattr(ex, 'gif_url', None):
-        try:
-            await callback.message.answer_animation(ex.gif_url, caption=f"<b>{ex.name_ru}</b>", parse_mode="HTML")
-        except Exception:
-            pass
-    elif getattr(ex, 'photo_url', None):
-        try:
-            await callback.message.answer_photo(ex.photo_url, caption=f"<b>{ex.name_ru}</b>", parse_mode="HTML")
-        except Exception:
-            pass
     muscle_names = await _muscle_names_by_id(session)
-    await safe_edit_text(callback.message,
+    await send_exercise_card(
+        callback.message,
         format_exercise_card(first_se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names),
         reply_markup=set_log_kb(first_se.id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup"),
-        parse_mode="HTML"
+        ex=ex,
+        edit_text=True,
     )
 
 
@@ -391,10 +418,11 @@ async def next_exercise(callback: CallbackQuery, state: FSMContext, session: Asy
         current_weight=None,
     )
     muscle_names = await _muscle_names_by_id(session)
-    await callback.message.answer(
+    await send_exercise_card(
+        callback.message,
         format_exercise_card(se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names),
         reply_markup=set_log_kb(se_id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup"),
-        parse_mode="HTML"
+        ex=ex,
     )
 
 
@@ -433,10 +461,12 @@ async def resume_workout(callback, state, session):
         current_weight=None,
     )
     muscle_names = await _muscle_names_by_id(session)
-    await safe_edit_text(callback.message,
+    await send_exercise_card(
+        callback.message,
         "▶️ " + format_exercise_card(se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names),
         reply_markup=set_log_kb(se.id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup"),
-        parse_mode="HTML"
+        ex=ex,
+        edit_text=True,
     )
     await callback.answer()
 
@@ -534,14 +564,16 @@ async def do_replace_exercise(callback, state, session):
     reps, weight = _default_set_values(se, new_ex, modifier, phase, warmup_index)
     await state.update_data(current_reps=None, current_weight=None)
     muscle_names = await _muscle_names_by_id(session)
-    await safe_edit_text(callback.message,
+    await send_exercise_card(
+        callback.message,
         "✅ Заменено\n" + format_exercise_card(
             se, new_ex, cs, modifier, is_warmup=phase == "warmup", warmup_index=warmup_index, muscle_names_by_id=muscle_names,
         ),
         reply_markup=set_log_kb(
             se_id, visible_set, reps, weight, exercise_technique_url(new_ex), is_warmup=phase == "warmup",
         ),
-        parse_mode="HTML"
+        ex=new_ex,
+        edit_text=True,
     )
     await callback.answer()
 
