@@ -77,6 +77,19 @@ def _reply_callbacks(requests):
     return callbacks
 
 
+def _keyboard_texts(requests):
+    texts = []
+    for request in requests:
+        markup = request["payload"].get("reply_markup")
+        if not isinstance(markup, dict):
+            continue
+        for row in markup.get("keyboard") or []:
+            for button in row:
+                if button.get("text"):
+                    texts.append(button["text"])
+    return texts
+
+
 @pytest.mark.asyncio
 async def test_main_menu_buttons_return_their_expected_sections(dispatcher, bot, session, registered_user):
     cases = {
@@ -298,9 +311,10 @@ async def test_admin_button_stats_and_segmented_broadcast(dispatcher, bot, sessi
     for row in first_markup.get("inline_keyboard") or []:
         main_menu_callbacks.extend(button.get("callback_data") for button in row)
     assert "menu:admin" not in main_menu_callbacks
-    assert "menu:admin" in _reply_callbacks(admin_menu)
+    assert "menu:admin" not in _reply_callbacks(admin_menu)
+    assert {"🔧 Админ", "🔧 Admin"}.intersection(_keyboard_texts(admin_menu))
 
-    panel = await _feed_callback(dispatcher, bot, session, "menu:admin", admin_uid)
+    panel = await _feed_message(dispatcher, bot, session, _keyboard_texts(admin_menu)[0], admin_uid)
     rendered = _texts(panel) + "\n" + "\n".join(_reply_callbacks(panel))
     assert "Админ-панель" in rendered
     assert "Пользователи" in rendered

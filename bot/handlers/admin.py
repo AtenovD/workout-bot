@@ -132,6 +132,14 @@ async def admin_panel_command(msg: Message, session: AsyncSession):
     await msg.answer(await _admin_stats(session), reply_markup=_admin_kb(), parse_mode="HTML")
 
 
+@router.message(F.text.in_({"🔧 Админ", "🔧 Admin"}))
+async def admin_panel_reply_button(msg: Message, session: AsyncSession):
+    if _deny_message(msg.from_user.id):
+        await msg.answer("⛔ Нет доступа.")
+        return
+    await msg.answer(await _admin_stats(session), reply_markup=_admin_kb(), parse_mode="HTML")
+
+
 @router.callback_query(F.data == "menu:admin")
 async def admin_menu_cb(callback: CallbackQuery, user: User, session: AsyncSession):
     if _deny_message(user.telegram_id):

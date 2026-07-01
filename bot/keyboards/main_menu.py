@@ -1,4 +1,4 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
 from bot.texts import t
 
@@ -23,13 +23,16 @@ def main_menu_keyboard(is_admin: bool = False, lang: str = "ru", telegram_id: in
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def admin_entry_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=t("menu_admin", lang), callback_data="menu:admin")]]
+def admin_reply_keyboard(lang: str = "ru") -> ReplyKeyboardMarkup:
+    placeholder = "Admin tools" if lang == "en" else "Админ-панель"
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=t("menu_admin", lang))]],
+        resize_keyboard=True,
+        input_field_placeholder=placeholder,
     )
 
 
 def admin_entry_text(lang: str = "ru") -> str:
     if lang == "en":
-        return "🔐 <b>Admin tools</b>"
-    return "🔐 <b>Админ-инструменты</b>"
+        return "🔧 Admin button is available in the bottom keyboard."
+    return "🔧 Кнопка админа доступна в нижней клавиатуре."
