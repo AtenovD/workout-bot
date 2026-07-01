@@ -31,12 +31,41 @@ from bot.utils.message_edit import safe_edit_text
 router = Router()
 
 
-def modifier_kb():
+def _lang(user: User | None = None) -> str:
+    return "en" if user and user.language_code == "en" else "ru"
+
+
+def modifier_kb(lang: str = "ru"):
+    if lang == "en":
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🟢 Light", callback_data="mod:light")],
+            [InlineKeyboardButton(text="⚪ Normal", callback_data="mod:normal")],
+            [InlineKeyboardButton(text="🔴 Heavy", callback_data="mod:hard")],
+        ])
+
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🟢 Облегчённый", callback_data="mod:light")],
         [InlineKeyboardButton(text="⚪ Обычный", callback_data="mod:normal")],
         [InlineKeyboardButton(text="🔴 Утяжелённый", callback_data="mod:hard")],
     ])
+
+
+def workout_start_text(lang: str = "ru") -> str:
+    if lang == "en":
+        return "🏋️ <b>Starting your workout!</b>\n\nHow do you feel today?"
+    return "🏋️ <b>Начинаем тренировку!</b>\n\nКак себя чувствуешь сегодня?"
+
+
+def active_workout_text(lang: str = "ru") -> str:
+    if lang == "en":
+        return "You have an unfinished workout. Continue?"
+    return "У тебя есть незавершённая тренировка. Продолжить?"
+
+
+def regen_text(lang: str = "ru") -> str:
+    if lang == "en":
+        return "🔄 <b>Regenerating workout!</b>\n\nChoose intensity:"
+    return "🔄 <b>Перегенерируем!</b>\n\nВыбери интенсивность:"
 
 def overview_kb(session_id):
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -167,6 +196,7 @@ async def _skipped_exercises(session: AsyncSession, session_id: int):
 @router.message(F.text.in_({"🏋️ Тренировка", "🏋️ Workout"}))
 @router.callback_query(F.data == "menu:workout")
 async def start_workout(event, state: FSMContext, user: User, session: AsyncSession, **kwargs):
+    lang = _lang(user)
     msg = event.message if isinstance(event, CallbackQuery) else event
     existing = await session.execute(
         select(WorkoutSession).where(WorkoutSession.user_id == user.id,
@@ -175,14 +205,14 @@ async def start_workout(event, state: FSMContext, user: User, session: AsyncSess
     active = existing.scalar_one_or_none()
     if active:
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="▶️ Продолжить", callback_data=f"wk:resume:{active.id}")],
-            [InlineKeyboardButton(text="❌ Завершить досрочно", callback_data=f"wk:abort:{active.id}")],
+            [InlineKeyboardButton(text="▶️ Continue" if lang == "en" else "▶️ Продолжить", callback_data=f"wk:resume:{active.id}")],
+            [InlineKeyboardButton(text="❌ End now" if lang == "en" else "❌ Завершить досрочно", callback_data=f"wk:abort:{active.id}")],
         ])
-        await msg.answer("У тебя есть незавершённая тренировка. Продолжить?", reply_markup=kb)
+        await msg.answer(active_workout_text(lang), reply_markup=kb)
         return
     await state.set_state(WorkoutStates.choosing_modifier)
-    text = "🏋️ <b>Начинаем тренировку!</b>\n\nКак себя чувствуешь сегодня?"
-    await send_module_visual(event, "workout", text, reply_markup=modifier_kb())
+    await state.update_data(language=lang)
+    await send_module_visual(event, "workout", workout_start_text(lang), reply_markup=modifier_kb(lang))
 
 
 @router.callback_query(F.data.startswith("mod:"))
@@ -489,7 +519,8 @@ async def abort_workout(callback, state, session):
 
 
 @router.callback_query(F.data.startswith("wk:regen:"))
-async def regen_workout(callback, state, session):
+async def regen_workout(callback, state, session, user: User):
+    lang = _lang(user)
     data = await state.get_data()
     session_id = data.get("workout_session_id")
     if session_id:
@@ -500,8 +531,8 @@ async def regen_workout(callback, state, session):
     await state.clear()
     await state.set_state(WorkoutStates.choosing_modifier)
     await safe_edit_text(callback.message,
-        "🔄 <b>Перегенерируем!</b>\n\nВыбери интенсивность:",
-        reply_markup=modifier_kb(),
+        regen_text(lang),
+        reply_markup=modifier_kb(lang),
         parse_mode="HTML"
     )
     await callback.answer()

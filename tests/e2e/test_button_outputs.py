@@ -90,6 +90,19 @@ def _keyboard_texts(requests):
     return texts
 
 
+def _inline_button_texts(requests):
+    texts = []
+    for request in requests:
+        markup = request["payload"].get("reply_markup")
+        if not isinstance(markup, dict):
+            continue
+        for row in markup.get("inline_keyboard") or []:
+            for button in row:
+                if button.get("text"):
+                    texts.append(button["text"])
+    return texts
+
+
 @pytest.mark.asyncio
 async def test_main_menu_buttons_return_their_expected_sections(dispatcher, bot, session, registered_user):
     cases = {
@@ -108,6 +121,21 @@ async def test_main_menu_buttons_return_their_expected_sections(dispatcher, bot,
         rendered = _texts(requests) + "\n" + "\n".join(_reply_callbacks(requests))
         for token in expected:
             assert token in rendered, f"{callback_data} rendered wrong output: {rendered}"
+
+
+@pytest.mark.asyncio
+async def test_english_workout_entry_keeps_english(dispatcher, bot, session):
+    requests = await _feed_callback(dispatcher, bot, session, "menu:workout", 987654321)
+    rendered = _texts(requests) + "\n" + "\n".join(_inline_button_texts(requests))
+
+    assert "Starting your workout" in rendered
+    assert "How do you feel today?" in rendered
+    assert "Light" in rendered
+    assert "Normal" in rendered
+    assert "Heavy" in rendered
+    assert "Начинаем" not in rendered
+    assert "Как себя" not in rendered
+    assert "Облегч" not in rendered
 
 
 @pytest.mark.asyncio
