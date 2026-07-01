@@ -315,7 +315,8 @@ async def test_admin_button_stats_and_segmented_broadcast(dispatcher, bot, sessi
     assert "menu:admin" not in _reply_callbacks(admin_menu)
     assert {"🔧 Админ", "🔧 Admin"}.intersection(_keyboard_texts(admin_menu))
 
-    panel = await _feed_message(dispatcher, bot, session, _keyboard_texts(admin_menu)[0], admin_uid)
+    admin_button = next(text for text in _keyboard_texts(admin_menu) if text in {"🔧 Админ", "🔧 Admin"})
+    panel = await _feed_message(dispatcher, bot, session, admin_button, admin_uid)
     rendered = _texts(panel) + "\n" + "\n".join(_reply_callbacks(panel))
     assert "Админ-панель" in rendered
     assert "Пользователи" in rendered
