@@ -16,6 +16,7 @@ class OnboardingStates(StatesGroup):
     training_days = State()
     duration = State()
     strength_calibration = State()
+    strength_calibration_input = State()
 
 
 class WorkoutStates(StatesGroup):

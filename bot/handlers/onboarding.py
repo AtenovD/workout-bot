@@ -17,7 +17,11 @@ from models.profile import ExperienceLevel, Gender, Goal, Profile
 from models.user import User
 from models.user_equipment import UserEquipment
 from services.calibration import process_calibration
-from services.strength_calibration import save_strength_calibration, strength_calibration_help
+from services.strength_calibration import (
+    save_strength_calibration,
+    strength_calibration_help,
+    supported_strength_calibration_list,
+)
 
 router = Router()
 
@@ -142,10 +146,24 @@ def strength_calibration_kb(lang: str):
     if lang == "en":
         return _kb(
             [("✍️ Enter working weights", "cal:strength:enter")],
+            [("📋 Supported exercises", "cal:strength:list")],
             [("⏭ Skip, calibrate in first workout", "cal:strength:skip")],
         )
     return _kb(
         [("✍️ Ввести рабочие веса", "cal:strength:enter")],
+        [("📋 Список упражнений", "cal:strength:list")],
+        [("⏭ Пропустить, откалибровать на первой тренировке", "cal:strength:skip")],
+    )
+
+
+def strength_calibration_input_kb(lang: str):
+    if lang == "en":
+        return _kb(
+            [("📋 Supported exercises", "cal:strength:list")],
+            [("⏭ Skip, calibrate in first workout", "cal:strength:skip")],
+        )
+    return _kb(
+        [("📋 Список упражнений", "cal:strength:list")],
         [("⏭ Пропустить, откалибровать на первой тренировке", "cal:strength:skip")],
     )
 
@@ -557,6 +575,7 @@ async def ask_strength_calibration(callback: CallbackQuery, state: FSMContext, u
 
 @router.callback_query(OnboardingStates.strength_calibration, F.data == "cal:strength:enter")
 async def prompt_strength_lines(callback: CallbackQuery, state: FSMContext, user: User):
+    await state.set_state(OnboardingStates.strength_calibration_input)
     lang = await _current_lang(state, user)
     if lang == "en":
         text = (
@@ -564,7 +583,8 @@ async def prompt_strength_lines(callback: CallbackQuery, state: FSMContext, user
             "Examples:\n"
             "<code>Bench press 80x8</code>\n"
             "<code>Squat 100x5</code>\n"
-            "<code>Back row 65x10</code>\n\n"
+            "<code>Back row 65x10</code>\n"
+            "<code>Leg press 160x10</code>\n\n"
             "Use a normal hard working set, not a one-rep max."
         )
     else:
@@ -573,30 +593,67 @@ async def prompt_strength_lines(callback: CallbackQuery, state: FSMContext, user
             "Примеры:\n"
             "<code>Жим лежа 80x8</code>\n"
             "<code>Присед 100x5</code>\n"
-            "<code>Тяга на спину 65x10</code>\n\n"
+            "<code>Тяга на спину 65x10</code>\n"
+            "<code>Жим ногами 160x10</code>\n\n"
             "Пиши обычный тяжелый рабочий подход, не разовый максимум."
         )
-    await safe_edit_text(callback.message, text, parse_mode="HTML")
+    await safe_edit_text(
+        callback.message,
+        text,
+        reply_markup=strength_calibration_input_kb(lang),
+        parse_mode="HTML",
+    )
     await callback.answer()
 
 
-@router.callback_query(OnboardingStates.strength_calibration, F.data == "cal:strength:skip")
+@router.callback_query(
+    OnboardingStates.strength_calibration,
+    F.data == "cal:strength:list",
+)
+@router.callback_query(
+    OnboardingStates.strength_calibration_input,
+    F.data == "cal:strength:list",
+)
+async def show_strength_supported_list(callback: CallbackQuery, state: FSMContext, user: User):
+    await state.set_state(OnboardingStates.strength_calibration_input)
+    lang = await _current_lang(state, user)
+    await safe_edit_text(
+        callback.message,
+        supported_strength_calibration_list(lang),
+        reply_markup=strength_calibration_input_kb(lang),
+        parse_mode="HTML",
+    )
+    await callback.answer()
+
+
+@router.callback_query(
+    OnboardingStates.strength_calibration,
+    F.data == "cal:strength:skip",
+)
+@router.callback_query(
+    OnboardingStates.strength_calibration_input,
+    F.data == "cal:strength:skip",
+)
 async def skip_strength_calibration(callback: CallbackQuery, state: FSMContext, user: User, session: AsyncSession):
     await _complete_onboarding(callback.message, state, user, session, strength_entries=[])
     await callback.answer()
 
 
-@router.message(OnboardingStates.strength_calibration, F.text)
+@router.message(OnboardingStates.strength_calibration_input, F.text)
 async def save_strength_lines(message: Message, state: FSMContext, user: User, session: AsyncSession):
     entries = await save_strength_calibration(session, user.id, message.text or "")
     if not entries:
         lang = await _current_lang(state, user)
         text = (
-            "I could not recognize the weights. Try: <code>Bench press 80x8</code>, or press skip in the previous message."
+            "I could not recognize the weights.\n\n"
+            "Try: <code>Bench press 80x8</code>\n"
+            "Or open the supported exercise list below."
             if lang == "en"
-            else "Не смог распознать веса. Попробуй так: <code>Жим лежа 80x8</code>, или нажми пропуск в предыдущем сообщении."
+            else "Не смог распознать веса.\n\n"
+            "Попробуй так: <code>Жим лежа 80x8</code>\n"
+            "Или открой список поддерживаемых упражнений ниже."
         )
-        await message.answer(text, parse_mode="HTML")
+        await message.answer(text, reply_markup=strength_calibration_input_kb(lang), parse_mode="HTML")
         return
     await _complete_onboarding(message, state, user, session, strength_entries=entries)
 

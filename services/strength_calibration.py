@@ -124,6 +124,32 @@ ANCHORS: tuple[StrengthAnchor, ...] = (
 )
 
 
+def supported_strength_calibration_list(lang: str = "ru") -> str:
+    if lang == "en":
+        return (
+            "Supported working-weight entries:\n"
+            "• Bench press: bench press, incline bench press, close-grip bench, dumbbell bench press, dumbbell incline press, dumbbell flyes\n"
+            "• Squat: squat, front squat, pause squat, Smith squat, lunges, Bulgarian split squat\n"
+            "• Leg press: leg press, leg extension, seated leg curl, lying leg curl\n"
+            "• Deadlift: deadlift, Romanian deadlift, dumbbell Romanian deadlift\n"
+            "• Back row: back row, seated cable row, T-bar row, one-arm dumbbell row, lat pulldown\n"
+            "• Overhead press: overhead press, military press, seated dumbbell press, Arnold press, lateral raise\n\n"
+            "Send any exercises you know, one per line, like: Bench press 100x10. "
+            "These anchors calibrate the same exercise and related movements."
+        )
+    return (
+        "Поддерживаемые рабочие веса:\n"
+        "• Жим лежа: жим лежа, жим на наклонной, жим узким хватом, жим гантелей лежа, жим гантелей на наклонной, разводка гантелей\n"
+        "• Присед: присед, фронтальный присед, присед с паузой, Smith-присед, выпады, болгарские приседания\n"
+        "• Жим ногами: жим ногами, разгибание ног, сгибание ног сидя, сгибание ног лежа\n"
+        "• Становая: становая тяга, румынская тяга, румынская тяга с гантелями\n"
+        "• Тяга на спину: тяга на спину, горизонтальная тяга, T-bar тяга, тяга одной гантели, вертикальная тяга\n"
+        "• Жим над головой: жим стоя, military press, жим гантелей сидя, жим Арнольда, подъемы через стороны\n\n"
+        "Отправь то, что знаешь, по одному упражнению в строке, например: Жим лежа 100x10. "
+        "Эти якоря калибруют само упражнение и похожие движения."
+    )
+
+
 def strength_calibration_help(lang: str = "ru") -> str:
     if lang == "en":
         return (
@@ -172,6 +198,8 @@ def _anchor_for_line(line: str) -> StrengthAnchor | None:
     normalized = _normalize(line)
     for anchor in ANCHORS:
         if any(_normalize(keyword) in normalized for keyword in anchor.keywords):
+            return anchor
+        if any(code.replace("_", " ") in normalized for code in anchor.ratios):
             return anchor
     return None
 

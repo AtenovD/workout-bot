@@ -16,7 +16,11 @@ from services.workout_generator import (
     _target_exercise_count,
     _target_reps_range,
 )
-from services.strength_calibration import parse_strength_calibration, working_weight_from_e1rm
+from services.strength_calibration import (
+    parse_strength_calibration,
+    supported_strength_calibration_list,
+    working_weight_from_e1rm,
+)
 from services.training_strategy import format_strategy_note_title, parse_strategy_note
 
 
@@ -116,6 +120,21 @@ def test_strength_calibration_turns_e1rm_into_working_weight():
     weight = working_weight_from_e1rm(100, target_reps=8, exercise_type=ExerciseType.compound)
 
     assert weight == 70.0
+
+
+def test_strength_calibration_parser_reads_related_english_inputs():
+    entries = parse_strength_calibration("Bench press 100x10\nLat pulldown 70x10\nOverhead press 50x8")
+
+    assert [entry["key"] for entry in entries] == ["bench_press", "row", "overhead_press"]
+
+
+def test_strength_calibration_supported_list_explains_available_inputs():
+    text = supported_strength_calibration_list("en")
+
+    assert "Bench press" in text
+    assert "Leg press" in text
+    assert "Overhead press" in text
+    assert "lat pulldown" in text
 
 
 def test_review_feedback_adjusts_future_workout_load():
