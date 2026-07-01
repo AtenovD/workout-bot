@@ -289,6 +289,11 @@ async def test_admin_button_stats_and_segmented_broadcast(dispatcher, bot, sessi
     assert "menu:admin" not in _reply_callbacks(non_admin_menu)
 
     admin_menu = await _feed_callback(dispatcher, bot, session, "menu:main", admin_uid)
+    main_menu_callbacks = []
+    first_markup = admin_menu[0]["payload"].get("reply_markup")
+    for row in first_markup.get("inline_keyboard") or []:
+        main_menu_callbacks.extend(button.get("callback_data") for button in row)
+    assert "menu:admin" not in main_menu_callbacks
     assert "menu:admin" in _reply_callbacks(admin_menu)
 
     panel = await _feed_callback(dispatcher, bot, session, "menu:admin", admin_uid)

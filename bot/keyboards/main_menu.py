@@ -1,11 +1,9 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from bot.services.admin_access import is_admin_telegram_id
 from bot.texts import t
 
 
 def main_menu_keyboard(is_admin: bool = False, lang: str = "ru", telegram_id: int | None = None) -> InlineKeyboardMarkup:
-    is_admin = is_admin or is_admin_telegram_id(telegram_id)
     rows = [
         [InlineKeyboardButton(text=t("menu_workout", lang), callback_data="menu:workout")],
         [
@@ -22,6 +20,16 @@ def main_menu_keyboard(is_admin: bool = False, lang: str = "ru", telegram_id: in
             InlineKeyboardButton(text=t("menu_settings", lang), callback_data="menu:settings"),
         ],
     ]
-    if is_admin:
-        rows.append([InlineKeyboardButton(text=t("menu_admin", lang), callback_data="menu:admin")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_entry_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=t("menu_admin", lang), callback_data="menu:admin")]]
+    )
+
+
+def admin_entry_text(lang: str = "ru") -> str:
+    if lang == "en":
+        return "🔐 <b>Admin tools</b>"
+    return "🔐 <b>Админ-инструменты</b>"

@@ -7,7 +7,8 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.main_menu import main_menu_keyboard
+from bot.keyboards.main_menu import admin_entry_keyboard, admin_entry_text, main_menu_keyboard
+from bot.services.admin_access import is_admin_telegram_id
 from bot.states.states import OnboardingStates
 from bot.utils.message_edit import safe_edit_text
 from models.calibration import CalibrationAnswer
@@ -242,6 +243,8 @@ async def cmd_start(message: Message, state: FSMContext, user: User, session: As
             reply_markup=main_menu_keyboard(lang=lang, telegram_id=user.telegram_id),
             parse_mode="HTML",
         )
+        if is_admin_telegram_id(user.telegram_id):
+            await message.answer(admin_entry_text(lang), reply_markup=admin_entry_keyboard(lang), parse_mode="HTML")
         return
 
     await state.set_state(OnboardingStates.language)
@@ -731,3 +734,5 @@ async def _complete_onboarding(
         reply_markup=main_menu_keyboard(lang=lang, telegram_id=user.telegram_id),
         parse_mode="HTML",
     )
+    if is_admin_telegram_id(user.telegram_id):
+        await event_message.answer(admin_entry_text(lang), reply_markup=admin_entry_keyboard(lang), parse_mode="HTML")
