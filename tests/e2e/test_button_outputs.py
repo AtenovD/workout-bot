@@ -103,14 +103,18 @@ async def test_progress_subbuttons_return_expected_outputs(dispatcher, bot, sess
 
     volume = await _feed_callback(dispatcher, bot, session, "prog:vol_chart", registered_user.telegram_id)
     assert "sendPhoto" in _methods(volume)
-    assert "Объём тренировок за 30 дней" in _texts(volume)
+    assert "Объем тренировок за 30 дней" in _texts(volume)
+    assert "menu:progress" in _reply_callbacks(volume)
 
     weight = await _feed_callback(dispatcher, bot, session, "prog:weight_chart", registered_user.telegram_id)
     assert "sendPhoto" in _methods(weight)
     assert "Динамика веса за 90 дней" in _texts(weight)
+    assert "menu:progress" in _reply_callbacks(weight)
 
     records = await _feed_callback(dispatcher, bot, session, "prog:records", registered_user.telegram_id)
     assert "Рекордов пока нет" in _texts(records)
+    assert "Личные рекорды" in _texts(records)
+    assert "menu:progress" in _reply_callbacks(records)
 
 
 @pytest.mark.asyncio

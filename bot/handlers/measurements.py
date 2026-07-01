@@ -1,173 +1,284 @@
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
 from datetime import datetime
 
-from models.body_measurement import BodyMeasurement
-from core.database import get_session
+from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from sqlalchemy import desc, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from bot.keyboards.main_menu import main_menu_keyboard
 from bot.utils.message_edit import safe_edit_text
+from core.database import get_session
+from models.body_measurement import BodyMeasurement
+from models.user import User
 
 router = Router()
 
 MEASURE_LABELS = {
-    "weight_kg":       "⚖️ Вес (кг)",
-    "chest_cm":        "💪 Грудь (см)",
-    "waist_cm":        "📏 Талия (см)",
-    "hips_cm":         "🖌️ Бёдра (см)",
-    "biceps_left_cm":  "💪 L Бицепс (см)",
-    "biceps_right_cm": "💪 R Бицепс (см)",
-    "thigh_left_cm":   "🦵 L Бедро (см)",
-    "thigh_right_cm":  "🦵 R Бедро (см)",
-    "neck_cm":         "👔 Шея (см)",
-    "bodyfat_pct":     "📊 % Жира",
+    "ru": {
+        "weight_kg": "⚖️ Вес (кг)",
+        "chest_cm": "💪 Грудь (см)",
+        "waist_cm": "📏 Талия (см)",
+        "hips_cm": "🧍 Бедра (см)",
+        "biceps_left_cm": "💪 Левый бицепс (см)",
+        "biceps_right_cm": "💪 Правый бицепс (см)",
+        "thigh_left_cm": "🦵 Левое бедро (см)",
+        "thigh_right_cm": "🦵 Правое бедро (см)",
+        "neck_cm": "👔 Шея (см)",
+        "bodyfat_pct": "📊 Жир (%)",
+    },
+    "en": {
+        "weight_kg": "⚖️ Weight (kg)",
+        "chest_cm": "💪 Chest (cm)",
+        "waist_cm": "📏 Waist (cm)",
+        "hips_cm": "🧍 Hips (cm)",
+        "biceps_left_cm": "💪 Left biceps (cm)",
+        "biceps_right_cm": "💪 Right biceps (cm)",
+        "thigh_left_cm": "🦵 Left thigh (cm)",
+        "thigh_right_cm": "🦵 Right thigh (cm)",
+        "neck_cm": "👔 Neck (cm)",
+        "bodyfat_pct": "📊 Body fat (%)",
+    },
 }
 
-MEASURE_ORDER = ["weight_kg", "chest_cm", "waist_cm", "hips_cm", "biceps_left_cm", "biceps_right_cm", "thigh_left_cm", "thigh_right_cm", "neck_cm", "bodyfat_pct"]
+MEASURE_ORDER = [
+    "weight_kg",
+    "chest_cm",
+    "waist_cm",
+    "hips_cm",
+    "biceps_left_cm",
+    "biceps_right_cm",
+    "thigh_left_cm",
+    "thigh_right_cm",
+    "neck_cm",
+    "bodyfat_pct",
+]
 
 
 class MeasureStates(StatesGroup):
     entering = State()
-    confirming = State()
+
+
+def _lang(user: User | None = None) -> str:
+    return "en" if user and user.language_code == "en" else "ru"
+
+
+def _measure_kb(lang: str, has_history: bool) -> InlineKeyboardMarkup:
+    if lang == "en":
+        rows = [[InlineKeyboardButton(text="📝 Add measurement", callback_data="meas:new")]]
+        if has_history:
+            rows.append([InlineKeyboardButton(text="📊 History", callback_data="meas:history")])
+        rows.extend([
+            [InlineKeyboardButton(text="◀️ Back to progress", callback_data="menu:progress")],
+            [InlineKeyboardButton(text="🏠 Main menu", callback_data="menu:main")],
+        ])
+    else:
+        rows = [[InlineKeyboardButton(text="📝 Добавить замер", callback_data="meas:new")]]
+        if has_history:
+            rows.append([InlineKeyboardButton(text="📊 История", callback_data="meas:history")])
+        rows.extend([
+            [InlineKeyboardButton(text="◀️ Назад к прогрессу", callback_data="menu:progress")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")],
+        ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def _after_save_kb(lang: str) -> InlineKeyboardMarkup:
+    if lang == "en":
+        rows = [
+            [InlineKeyboardButton(text="📊 Measurements", callback_data="menu:measurements")],
+            [InlineKeyboardButton(text="◀️ Back to progress", callback_data="menu:progress")],
+        ]
+    else:
+        rows = [
+            [InlineKeyboardButton(text="📊 Замеры тела", callback_data="menu:measurements")],
+            [InlineKeyboardButton(text="◀️ Назад к прогрессу", callback_data="menu:progress")],
+        ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def _measurement_lines(measurement: BodyMeasurement, lang: str) -> list[str]:
+    labels = MEASURE_LABELS[lang]
+    lines = []
+    date_str = measurement.recorded_at.strftime("%d.%m.%Y") if measurement.recorded_at else "—"
+    lines.append(f"📅 <i>{date_str}</i>")
+    for field in MEASURE_ORDER:
+        value = getattr(measurement, field, None)
+        if value is not None:
+            lines.append(f"{labels[field]}: <b>{float(value):g}</b>")
+    return lines
 
 
 @router.callback_query(F.data == "menu:measurements")
-@router.message(F.text == "📏 Замеры")
-async def measurements_menu(msg_or_cb, state: FSMContext, session: AsyncSession = None):
+async def measurements_menu(callback: CallbackQuery, state: FSMContext, user: User, session: AsyncSession = None):
     if not session:
         session = await get_session()
-    user_id = msg_or_cb.from_user.id
-    target = msg_or_cb.message if isinstance(msg_or_cb, CallbackQuery) else msg_or_cb
+    lang = _lang(user)
+    await state.clear()
 
-    # Show latest measurement
-    result = await session.execute(
-        select(BodyMeasurement).where(BodyMeasurement.user_id == user_id)
-        .order_by(desc(BodyMeasurement.recorded_at)).limit(1)
-    )
-    latest = result.scalar()
-
-    kb = InlineKeyboardBuilder()
-    kb.button(text="📝 Внести замеры", callback_data="meas:new")
-    if latest:
-        kb.button(text="📊 История", callback_data="meas:history")
-    kb.button(text="◀️ Назад", callback_data="menu:main")
-    kb.adjust(1)
+    latest = (
+        await session.execute(
+            select(BodyMeasurement)
+            .where(BodyMeasurement.user_id == user.telegram_id)
+            .order_by(desc(BodyMeasurement.recorded_at))
+            .limit(1)
+        )
+    ).scalar_one_or_none()
 
     if latest:
-        lines = ["📏 <b>Последние замеры</b>\n"]
-        date_str = latest.recorded_at.strftime("%d.%m.%Y") if latest.recorded_at else "—"
-        lines.append(f"📅 <i>{date_str}</i>\n")
-        for field in MEASURE_ORDER:
-            val = getattr(latest, field, None)
-            if val is not None:
-                lines.append(f"{MEASURE_LABELS[field]}: <b>{val}</b>")
-        text = "\n".join(lines)
+        title = "📏 <b>Latest body measurement</b>\n" if lang == "en" else "📏 <b>Последние замеры тела</b>\n"
+        text = title + "\n".join(_measurement_lines(latest, lang))
+    elif lang == "en":
+        text = (
+            "📏 <b>Body measurements</b>\n\n"
+            "No measurements yet. Add weight, waist, chest or other values once in a while — then the weight chart and progress screen become useful."
+        )
     else:
-        text = "📏 <b>Замеры тела</b>\n\nПока нет записей. Нажми «Внести замеры»."
+        text = (
+            "📏 <b>Замеры тела</b>\n\n"
+            "Записей пока нет. Добавляй вес, талию, грудь и другие значения время от времени — тогда график веса и экран прогресса станут полезнее."
+        )
 
-    await target.answer(text, reply_markup=kb.as_markup(), parse_mode="HTML")
+    await safe_edit_text(callback.message, text, reply_markup=_measure_kb(lang, bool(latest)), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.message(F.text == "📏 Замеры")
+async def measurements_menu_legacy(message: Message, state: FSMContext, user: User, session: AsyncSession = None):
+    if not session:
+        session = await get_session()
+    lang = _lang(user)
+    await state.clear()
+    latest = (
+        await session.execute(
+            select(BodyMeasurement)
+            .where(BodyMeasurement.user_id == user.telegram_id)
+            .order_by(desc(BodyMeasurement.recorded_at))
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if latest:
+        text = ("📏 <b>Latest body measurement</b>\n" if lang == "en" else "📏 <b>Последние замеры тела</b>\n") + "\n".join(
+            _measurement_lines(latest, lang)
+        )
+    else:
+        text = (
+            "📏 <b>Body measurements</b>\n\nNo measurements yet."
+            if lang == "en"
+            else "📏 <b>Замеры тела</b>\n\nЗаписей пока нет."
+        )
+    await message.answer(text, reply_markup=_measure_kb(lang, bool(latest)), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "meas:new")
-async def start_new_measurement(cb: CallbackQuery, state: FSMContext):
+async def start_new_measurement(callback: CallbackQuery, state: FSMContext, user: User):
+    lang = _lang(user)
     await state.set_state(MeasureStates.entering)
-    await state.update_data(steps={}, current_idx=0)
-
+    await state.update_data(steps={}, current_idx=0, language=lang)
     field = MEASURE_ORDER[0]
-    await safe_edit_text(cb.message,
-        f"📏 <b>Новый замер</b>\n\n"
-        f"{MEASURE_LABELS[field]}:\n"
-        f"<i>Введи число или напиши «пропустить»</i>",
-        parse_mode="HTML"
-    )
+    if lang == "en":
+        text = (
+            "📏 <b>New measurement</b>\n\n"
+            f"{MEASURE_LABELS[lang][field]}:\n"
+            "<i>Enter a number, or type skip</i>"
+        )
+    else:
+        text = (
+            "📏 <b>Новый замер</b>\n\n"
+            f"{MEASURE_LABELS[lang][field]}:\n"
+            "<i>Введи число или напиши «пропустить»</i>"
+        )
+    await safe_edit_text(callback.message, text, parse_mode="HTML")
+    await callback.answer()
 
 
 @router.message(MeasureStates.entering, F.text)
-async def process_measure_step(msg: Message, state: FSMContext, session: AsyncSession = None):
+async def process_measure_step(message: Message, state: FSMContext, user: User, session: AsyncSession = None):
     if not session:
         session = await get_session()
     data = await state.get_data()
+    lang = data.get("language") or _lang(user)
     steps = data.get("steps", {})
     idx = data.get("current_idx", 0)
     field = MEASURE_ORDER[idx]
 
-    text = msg.text.strip().lower().replace(",", ".")
-    if text in ("пропустить", "пропуск", "skip", "-"):
-        # skip this field
-        pass
-    else:
+    raw = message.text.strip().lower().replace(",", ".")
+    skip_words = {"skip", "-", "пропустить", "пропуск"}
+    if raw not in skip_words:
         try:
-            val = float(text)
-            steps[field] = val
+            steps[field] = float(raw)
         except ValueError:
-            await msg.answer(
-                "❌ Введи число или «пропустить»",
-                reply_markup=None
-            )
+            text = "❌ Enter a number or type skip" if lang == "en" else "❌ Введи число или «пропустить»"
+            await message.answer(text)
             return
 
     next_idx = idx + 1
     if next_idx < len(MEASURE_ORDER):
         await state.update_data(steps=steps, current_idx=next_idx)
         next_field = MEASURE_ORDER[next_idx]
-        await msg.answer(
-            f"{MEASURE_LABELS[next_field]}:\n<i>Введи число или «пропустить»</i>",
-            parse_mode="HTML"
+        text = (
+            f"{MEASURE_LABELS[lang][next_field]}:\n<i>Enter a number, or type skip</i>"
+            if lang == "en"
+            else f"{MEASURE_LABELS[lang][next_field]}:\n<i>Введи число или напиши «пропустить»</i>"
         )
-    else:
-        # All done — save
-        await state.update_data(steps=steps)
-        await save_measurement(msg, state, session, steps)
+        await message.answer(text, parse_mode="HTML")
+        return
+
+    await state.update_data(steps=steps)
+    await save_measurement(message, state, session, user, steps, lang)
 
 
-async def save_measurement(msg: Message, state: FSMContext, session: AsyncSession, steps: dict):
-    user_id = msg.from_user.id
-    m = BodyMeasurement(user_id=user_id, **steps, recorded_at=datetime.utcnow())
-    session.add(m)
+async def save_measurement(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    user: User,
+    steps: dict,
+    lang: str,
+):
+    if not steps:
+        await state.clear()
+        text = "No values entered." if lang == "en" else "Не введено ни одного значения."
+        await message.answer(text, reply_markup=_after_save_kb(lang))
+        return
+
+    measurement = BodyMeasurement(user_id=user.telegram_id, **steps, recorded_at=datetime.utcnow())
+    session.add(measurement)
     await session.commit()
     await state.clear()
 
-    # Build confirmation message
-    lines = ["✅ <b>Замеры сохранены!</b>\n"]
-    for field in MEASURE_ORDER:
-        if field in steps:
-            lines.append(f"{MEASURE_LABELS[field]}: <b>{steps[field]}</b>")
-    lines.append(f"\n📅 {datetime.utcnow().strftime('%d.%m.%Y')}")
-
-    await msg.answer("\n".join(lines), reply_markup=main_menu_keyboard(telegram_id=msg.from_user.id), parse_mode="HTML")
+    title = "✅ <b>Measurement saved!</b>\n" if lang == "en" else "✅ <b>Замеры сохранены!</b>\n"
+    lines = [title, *_measurement_lines(measurement, lang)]
+    await message.answer("\n".join(lines), reply_markup=_after_save_kb(lang), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "meas:history")
-async def measurement_history(cb: CallbackQuery, session: AsyncSession = None):
+async def measurement_history(callback: CallbackQuery, user: User, session: AsyncSession = None):
     if not session:
         session = await get_session()
-    user_id = cb.from_user.id
-
-    result = await session.execute(
-        select(BodyMeasurement).where(BodyMeasurement.user_id == user_id)
-        .order_by(desc(BodyMeasurement.recorded_at)).limit(10)
-    )
-    records = result.scalars().all()
+    lang = _lang(user)
+    records = (
+        await session.execute(
+            select(BodyMeasurement)
+            .where(BodyMeasurement.user_id == user.telegram_id)
+            .order_by(desc(BodyMeasurement.recorded_at))
+            .limit(10)
+        )
+    ).scalars().all()
 
     if not records:
-        await safe_edit_text(cb.message,
-            "📊 Замеров пока нет.",
-            reply_markup=InlineKeyboardBuilder().button(text="◀️ Назад", callback_data="menu:measurements").as_markup(),
-            parse_mode="HTML"
-        )
+        text = "📊 No measurements yet." if lang == "en" else "📊 Замеров пока нет."
+        await safe_edit_text(callback.message, text, reply_markup=_measure_kb(lang, False), parse_mode="HTML")
+        await callback.answer()
         return
-    await cb.answer()
 
-    lines = ["📊 <b>История замеров</b>\n"]
-    for r in records:
-        date = r.recorded_at.strftime("%d.%m") if r.recorded_at else "—"
-        w = f"{r.weight_kg}кг" if r.weight_kg else "—"
-        lines.append(f"📅 {date}  |  ⚖️ {w}")
+    lines = ["📊 <b>Measurement history</b>\n" if lang == "en" else "📊 <b>История замеров</b>\n"]
+    for record in records:
+        date_str = record.recorded_at.strftime("%d.%m") if record.recorded_at else "—"
+        weight = f"{record.weight_kg:g} kg" if record.weight_kg and lang == "en" else f"{record.weight_kg:g} кг" if record.weight_kg else "—"
+        waist = f", waist {record.waist_cm:g} cm" if record.waist_cm and lang == "en" else f", талия {record.waist_cm:g} см" if record.waist_cm else ""
+        lines.append(f"📅 {date_str} | ⚖️ {weight}{waist}")
 
-    kb = InlineKeyboardBuilder()
-    kb.button(text="◀️ Назад", callback_data="menu:measurements")
-    await safe_edit_text(cb.message, "\n".join(lines), reply_markup=kb.as_markup(), parse_mode="HTML")
+    await safe_edit_text(callback.message, "\n".join(lines), reply_markup=_measure_kb(lang, True), parse_mode="HTML")
+    await callback.answer()

@@ -1,58 +1,60 @@
-"""
-Stats chart service — generates progress chart images using matplotlib.
-"""
 import io
 from datetime import date, datetime, timedelta
 
 import matplotlib
-matplotlib.use("Agg")  # non-interactive backend
-import matplotlib.pyplot as plt
+
+matplotlib.use("Agg")
 import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func
 
-from models.workout import WorkoutSession, ExerciseSet, SessionExercise, SessionStatus
 from models.user import User
+from models.workout import ExerciseSet, SessionExercise, SessionStatus, WorkoutSession
 
 
-async def generate_volume_chart(session: AsyncSession, user: User, days: int = 30) -> bytes:
-    """Generate a weekly volume chart. Returns PNG bytes."""
+async def generate_volume_chart(session: AsyncSession, user: User, days: int = 30, lang: str = "ru") -> bytes:
     since = date.today() - timedelta(days=days)
-
-    res = await session.execute(
-        select(WorkoutSession.id, WorkoutSession.completed_at, WorkoutSession.total_volume_kg)
-        .where(
-            WorkoutSession.user_id == user.id,
-            WorkoutSession.status == SessionStatus.completed,
-            WorkoutSession.completed_at >= since,
+    rows = (
+        await session.execute(
+            select(WorkoutSession.id, WorkoutSession.completed_at, WorkoutSession.total_volume_kg)
+            .where(
+                WorkoutSession.user_id == user.id,
+                WorkoutSession.status == SessionStatus.completed,
+                WorkoutSession.completed_at >= since,
+            )
+            .order_by(WorkoutSession.completed_at)
         )
-        .order_by(WorkoutSession.completed_at)
-    )
-    rows = res.all()
+    ).all()
 
     if not rows:
-        return _empty_chart("Нет данных за последние 30 дней")
+        message = "No data for the last 30 days" if lang == "en" else "Нет данных за последние 30 дней"
+        return _empty_chart(message)
 
     dates = []
     volumes = []
     for row in rows:
         volume = float(row.total_volume_kg or 0)
         if volume <= 0:
-            fallback_res = await session.execute(
-                select(func.sum(ExerciseSet.reps_done * ExerciseSet.weight_kg))
-                .join(SessionExercise, ExerciseSet.session_exercise_id == SessionExercise.id)
-                .where(SessionExercise.session_id == row.id)
+            volume = float(
+                (
+                    await session.execute(
+                        select(func.sum(ExerciseSet.reps_done * ExerciseSet.weight_kg))
+                        .join(SessionExercise, ExerciseSet.session_exercise_id == SessionExercise.id)
+                        .where(SessionExercise.session_id == row.id)
+                    )
+                ).scalar()
+                or 0
             )
-            volume = float(fallback_res.scalar() or 0)
         dates.append(row.completed_at.date())
         volumes.append(volume)
 
     fig, ax = plt.subplots(figsize=(8, 4), facecolor="#1a1a2e")
     ax.set_facecolor("#1a1a2e")
     ax.bar(dates, volumes, color="#4f8ef7", width=0.6, edgecolor="none")
-    ax.set_title("📊 Объём тренировок (кг)", color="white", fontsize=13, pad=12)
-    ax.set_xlabel("Дата", color="#aaa", fontsize=9)
-    ax.set_ylabel("Объём, кг", color="#aaa", fontsize=9)
+    ax.set_title("Training volume (kg)" if lang == "en" else "Объем тренировок (кг)", color="white", fontsize=13, pad=12)
+    ax.set_xlabel("Date" if lang == "en" else "Дата", color="#aaa", fontsize=9)
+    ax.set_ylabel("Volume, kg" if lang == "en" else "Объем, кг", color="#aaa", fontsize=9)
     ax.tick_params(colors="#aaa")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%d.%m"))
     ax.xaxis.set_major_locator(mdates.WeekdayLocator())
@@ -60,60 +62,58 @@ async def generate_volume_chart(session: AsyncSession, user: User, days: int = 3
     for spine in ax.spines.values():
         spine.set_edgecolor("#333")
     plt.tight_layout()
-
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
-    plt.close(fig)
-    buf.seek(0)
-    return buf.read()
+    return _fig_to_png(fig)
 
 
-async def generate_weight_chart(session: AsyncSession, user: User, days: int = 90) -> bytes:
-    """Generate body weight trend chart."""
+async def generate_weight_chart(session: AsyncSession, user: User, days: int = 90, lang: str = "ru") -> bytes:
     from models.body_measurement import BodyMeasurement
-    since = datetime.combine(date.today() - timedelta(days=days), datetime.min.time())
 
-    res = await session.execute(
-        select(BodyMeasurement.recorded_at, BodyMeasurement.weight_kg)
-        .where(BodyMeasurement.user_id == user.id, BodyMeasurement.recorded_at >= since)
-        .order_by(BodyMeasurement.recorded_at)
-    )
-    rows = res.all()
+    since = datetime.combine(date.today() - timedelta(days=days), datetime.min.time())
+    rows = (
+        await session.execute(
+            select(BodyMeasurement.recorded_at, BodyMeasurement.weight_kg)
+            .where(
+                BodyMeasurement.user_id == user.telegram_id,
+                BodyMeasurement.recorded_at >= since,
+                BodyMeasurement.weight_kg.is_not(None),
+            )
+            .order_by(BodyMeasurement.recorded_at)
+        )
+    ).all()
 
     if not rows:
-        return _empty_chart("Нет данных о весе")
+        message = "No body weight data yet" if lang == "en" else "Нет данных о весе"
+        return _empty_chart(message)
 
-    dates = [r.recorded_at.date() if hasattr(r.recorded_at, "date") else r.recorded_at for r in rows]
-    weights = [float(r.weight_kg) for r in rows]
+    dates = [row.recorded_at.date() if hasattr(row.recorded_at, "date") else row.recorded_at for row in rows]
+    weights = [float(row.weight_kg) for row in rows]
 
     fig, ax = plt.subplots(figsize=(8, 4), facecolor="#1a1a2e")
     ax.set_facecolor("#1a1a2e")
     ax.plot(dates, weights, color="#4f8ef7", linewidth=2, marker="o", markersize=4)
     ax.fill_between(dates, weights, alpha=0.15, color="#4f8ef7")
-    ax.set_title("⚖️ Динамика веса", color="white", fontsize=13, pad=12)
-    ax.set_xlabel("Дата", color="#aaa", fontsize=9)
-    ax.set_ylabel("Вес, кг", color="#aaa", fontsize=9)
+    ax.set_title("Body weight trend" if lang == "en" else "Динамика веса", color="white", fontsize=13, pad=12)
+    ax.set_xlabel("Date" if lang == "en" else "Дата", color="#aaa", fontsize=9)
+    ax.set_ylabel("Weight, kg" if lang == "en" else "Вес, кг", color="#aaa", fontsize=9)
     ax.tick_params(colors="#aaa")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%d.%m"))
     for spine in ax.spines.values():
         spine.set_edgecolor("#333")
     plt.tight_layout()
-
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
-    plt.close(fig)
-    buf.seek(0)
-    return buf.read()
+    return _fig_to_png(fig)
 
 
 def _empty_chart(message: str) -> bytes:
     fig, ax = plt.subplots(figsize=(6, 3), facecolor="#1a1a2e")
     ax.set_facecolor("#1a1a2e")
-    ax.text(0.5, 0.5, message, transform=ax.transAxes, ha="center", va="center",
-            color="#aaa", fontsize=12)
+    ax.text(0.5, 0.5, message, transform=ax.transAxes, ha="center", va="center", color="#aaa", fontsize=12)
     ax.axis("off")
+    return _fig_to_png(fig, dpi=100)
+
+
+def _fig_to_png(fig, dpi: int = 120) -> bytes:
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=100)
+    fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight")
     plt.close(fig)
     buf.seek(0)
     return buf.read()
