@@ -1,8 +1,9 @@
 from types import SimpleNamespace
 
 from models.exercise import EquipmentCategory, ExerciseType
-from models.profile import Goal
+from models.profile import Goal, SplitType, TrainingStructure
 from services.workout_generator import (
+    _blueprint_key,
     _combine_review_adjustments,
     _combine_health_adjustments,
     _exercise_score,
@@ -10,7 +11,9 @@ from services.workout_generator import (
     _is_equipment_available,
     _rank_pool,
     _resolve_muscle_groups,
+    _slot_prescription,
     _starting_weight_for,
+    _target_exercise_count,
     _target_reps_range,
 )
 from services.strength_calibration import parse_strength_calibration, working_weight_from_e1rm
@@ -184,3 +187,42 @@ def test_strategy_notes_are_parseable_with_rotation_prefix():
     assert parsed["week"] == "3"
     assert parsed["phase"] == "progression"
     assert format_strategy_note_title(note) == "Неделя прогрессии · неделя 3/6"
+def test_library_blueprint_key_follows_training_format():
+    fullbody = SimpleNamespace(training_structure=TrainingStructure.fullbody, split_type=None)
+    ppl = SimpleNamespace(training_structure=TrainingStructure.split, split_type=SplitType.push_pull_legs)
+    upper_lower = SimpleNamespace(training_structure=TrainingStructure.split, split_type=SplitType.upper_lower)
+
+    assert _blueprint_key(fullbody, ["chest", "back", "legs"]) == "full_body"
+    assert _blueprint_key(ppl, ["chest", "shoulders", "triceps"]) == "push"
+    assert _blueprint_key(ppl, ["back", "biceps"]) == "pull"
+    assert _blueprint_key(ppl, ["legs", "glutes", "calves"]) == "legs"
+    assert _blueprint_key(upper_lower, ["legs", "glutes", "calves", "core"]) == "lower"
+
+
+def test_library_model_uses_duration_to_choose_exercise_count():
+    assert _target_exercise_count(60, True) == 8
+    assert _target_exercise_count(45, True) == 6
+    assert _target_exercise_count(30, False) == 4
+
+
+def test_library_prescription_varies_sets_reps_by_slot():
+    strategy = SimpleNamespace(volume_factor=1.0, rest_factor=1.0)
+    review = {"sets_delta": 0, "rest_factor": 1.0}
+    health = {"sets_delta": 0, "rest_factor": 1.0}
+
+    heavy_slot = {"sets": 4, "reps": (6, 8)}
+    pump_slot = {"sets": 2, "reps": (15, 20)}
+
+    heavy_sets, heavy_reps, heavy_rest = _slot_prescription(
+        heavy_slot, Goal.mass_gain, "normal", ExerciseType.compound, strategy, review, health
+    )
+    pump_sets, pump_reps, pump_rest = _slot_prescription(
+        pump_slot, Goal.mass_gain, "normal", ExerciseType.isolation, strategy, review, health
+    )
+
+    assert heavy_sets == 4
+    assert 6 <= heavy_reps <= 8
+    assert heavy_rest >= 105
+    assert pump_sets == 2
+    assert 15 <= pump_reps <= 20
+    assert pump_rest < heavy_rest

@@ -114,6 +114,69 @@ CODE_REQUIRED_EQUIPMENT = {
     "trx": "trx",
 }
 
+LIBRARY_BLUEPRINTS = {
+    "push": [
+        {"groups": ["chest"], "type": ExerciseType.compound, "sets": 4, "reps": (6, 8)},
+        {"groups": ["shoulders"], "type": ExerciseType.compound, "sets": 3, "reps": (8, 10)},
+        {"groups": ["chest"], "type": ExerciseType.compound, "sets": 3, "reps": (8, 10)},
+        {"groups": ["triceps"], "type": ExerciseType.isolation, "sets": 3, "reps": (10, 12)},
+        {"groups": ["shoulders"], "type": ExerciseType.isolation, "sets": 3, "reps": (12, 15)},
+        {"groups": ["chest"], "type": ExerciseType.isolation, "sets": 3, "reps": (12, 15)},
+        {"groups": ["triceps"], "type": ExerciseType.isolation, "sets": 2, "reps": (15, 20)},
+        {"groups": ["shoulders"], "type": ExerciseType.compound, "sets": 3, "reps": (10, 12)},
+    ],
+    "pull": [
+        {"groups": ["back"], "type": ExerciseType.compound, "sets": 4, "reps": (6, 8)},
+        {"groups": ["back"], "type": ExerciseType.compound, "sets": 3, "reps": (8, 10)},
+        {"groups": ["back"], "type": ExerciseType.compound, "sets": 3, "reps": (10, 12)},
+        {"groups": ["traps", "shoulders"], "type": ExerciseType.isolation, "sets": 3, "reps": (12, 15)},
+        {"groups": ["back"], "type": ExerciseType.isolation, "sets": 3, "reps": (12, 15)},
+        {"groups": ["biceps"], "type": ExerciseType.isolation, "sets": 3, "reps": (8, 10)},
+        {"groups": ["biceps"], "type": ExerciseType.isolation, "sets": 3, "reps": (10, 12)},
+        {"groups": ["biceps"], "type": ExerciseType.isolation, "sets": 2, "reps": (15, 20)},
+    ],
+    "legs": [
+        {"groups": ["legs", "quads"], "type": ExerciseType.compound, "sets": 4, "reps": (6, 8)},
+        {"groups": ["glutes", "legs"], "type": ExerciseType.compound, "sets": 3, "reps": (8, 10)},
+        {"groups": ["legs", "quads"], "type": ExerciseType.compound, "sets": 3, "reps": (10, 12)},
+        {"groups": ["glutes"], "type": ExerciseType.compound, "sets": 3, "reps": (10, 12)},
+        {"groups": ["legs", "quads"], "type": ExerciseType.isolation, "sets": 3, "reps": (12, 15)},
+        {"groups": ["legs"], "type": ExerciseType.isolation, "sets": 3, "reps": (12, 15)},
+        {"groups": ["calves"], "type": ExerciseType.isolation, "sets": 3, "reps": (12, 15)},
+        {"groups": ["glutes", "calves"], "type": ExerciseType.isolation, "sets": 2, "reps": (15, 20)},
+    ],
+    "upper": [
+        {"groups": ["chest"], "type": ExerciseType.compound, "sets": 4, "reps": (6, 8)},
+        {"groups": ["back"], "type": ExerciseType.compound, "sets": 4, "reps": (6, 8)},
+        {"groups": ["shoulders"], "type": ExerciseType.compound, "sets": 3, "reps": (8, 10)},
+        {"groups": ["back"], "type": ExerciseType.compound, "sets": 3, "reps": (8, 10)},
+        {"groups": ["chest"], "type": ExerciseType.isolation, "sets": 3, "reps": (10, 12)},
+        {"groups": ["shoulders"], "type": ExerciseType.isolation, "sets": 3, "reps": (12, 15)},
+        {"groups": ["biceps"], "type": ExerciseType.isolation, "sets": 3, "reps": (10, 12)},
+        {"groups": ["triceps"], "type": ExerciseType.isolation, "sets": 3, "reps": (10, 12)},
+    ],
+    "lower": [
+        {"groups": ["legs", "quads"], "type": ExerciseType.compound, "sets": 4, "reps": (6, 8)},
+        {"groups": ["glutes", "legs"], "type": ExerciseType.compound, "sets": 4, "reps": (6, 8)},
+        {"groups": ["legs", "quads"], "type": ExerciseType.compound, "sets": 3, "reps": (8, 10)},
+        {"groups": ["glutes"], "type": ExerciseType.compound, "sets": 3, "reps": (10, 12)},
+        {"groups": ["legs"], "type": ExerciseType.isolation, "sets": 3, "reps": (12, 15)},
+        {"groups": ["glutes"], "type": ExerciseType.isolation, "sets": 3, "reps": (12, 15)},
+        {"groups": ["calves"], "type": ExerciseType.isolation, "sets": 3, "reps": (12, 15)},
+        {"groups": ["legs", "calves"], "type": ExerciseType.isolation, "sets": 2, "reps": (15, 20)},
+    ],
+    "full_body": [
+        {"groups": ["legs", "quads"], "type": ExerciseType.compound, "sets": 4, "reps": (6, 8)},
+        {"groups": ["chest"], "type": ExerciseType.compound, "sets": 3, "reps": (8, 10)},
+        {"groups": ["back"], "type": ExerciseType.compound, "sets": 3, "reps": (8, 10)},
+        {"groups": ["glutes", "legs"], "type": ExerciseType.compound, "sets": 3, "reps": (10, 12)},
+        {"groups": ["shoulders"], "type": ExerciseType.compound, "sets": 3, "reps": (10, 12)},
+        {"groups": ["back"], "type": ExerciseType.isolation, "sets": 3, "reps": (12, 15)},
+        {"groups": ["chest", "shoulders"], "type": ExerciseType.isolation, "sets": 3, "reps": (12, 15)},
+        {"groups": ["biceps", "triceps", "core"], "type": ExerciseType.isolation, "sets": 2, "reps": (15, 20)},
+    ],
+}
+
 
 def _normalize_health_flags(health_flags) -> list[str]:
     if isinstance(health_flags, dict):
@@ -220,6 +283,125 @@ def _target_reps_range(goal: Goal, modifier: str, exercise_type: ExerciseType) -
             return (8, 12)
         return (8, 12)
     return GOAL_PARAMS[goal]["reps"]
+
+
+def _blueprint_key(profile: Profile, target_groups: list[str]) -> str:
+    training_structure = getattr(profile.training_structure, "value", profile.training_structure)
+    split_type = getattr(profile.split_type, "value", profile.split_type)
+    if training_structure == TrainingStructure.fullbody.value:
+        return "full_body"
+
+    group_set = set(target_groups)
+    if {"chest", "shoulders", "triceps"}.issubset(group_set):
+        return "push"
+    if {"back", "biceps"}.issubset(group_set):
+        return "pull"
+    if {"legs", "glutes", "calves"}.intersection(group_set) and not {"chest", "back"}.intersection(group_set):
+        return "legs" if split_type == "push_pull_legs" else "lower"
+    if {"chest", "back"}.intersection(group_set) and not {"legs", "glutes", "calves"}.intersection(group_set):
+        return "upper"
+    return "full_body"
+
+
+def _target_exercise_count(preferred_duration_min: int | None, has_weighted_equipment: bool) -> int:
+    duration = preferred_duration_min or 45
+    if duration >= 60:
+        return 8
+    if duration >= 45:
+        return 6 if has_weighted_equipment else 5
+    return 5 if has_weighted_equipment else 4
+
+
+def _resolve_slot_group_ids(slot: dict, available_groups: dict[str, int]) -> list[int]:
+    return [mg_id for _, mg_id in _resolve_muscle_groups(slot["groups"], available_groups)]
+
+
+def _select_from_blueprint(
+    blueprint_key: str,
+    by_mg: dict[int, list[Exercise]],
+    available_groups: dict[str, int],
+    user_equipment_ids: set[int],
+    modifier: str,
+    has_weighted_equipment: bool,
+    prefer_exercise_codes: set[str],
+    max_exercises: int,
+) -> list[tuple[Exercise, dict]]:
+    selected: list[tuple[Exercise, dict]] = []
+    seen_ids: set[int] = set()
+    blueprint = LIBRARY_BLUEPRINTS.get(blueprint_key, LIBRARY_BLUEPRINTS["full_body"])
+
+    for slot in blueprint:
+        slot_group_ids = _resolve_slot_group_ids(slot, available_groups)
+        pool = [
+            ex
+            for mg_id in slot_group_ids
+            for ex in by_mg.get(mg_id, [])
+            if ex.id not in seen_ids
+        ]
+        if not pool:
+            continue
+
+        typed_pool = [ex for ex in pool if ex.exercise_type == slot["type"]]
+        ranked = _rank_pool(typed_pool or pool, user_equipment_ids, modifier, has_weighted_equipment)
+        if prefer_exercise_codes:
+            ranked = sorted(ranked, key=lambda ex: ex.code in prefer_exercise_codes, reverse=True)
+        chosen = ranked[0]
+        seen_ids.add(chosen.id)
+        selected.append((chosen, slot))
+        if len(selected) >= max_exercises:
+            break
+
+    return selected
+
+
+def _slot_prescription(
+    slot: dict | None,
+    goal: Goal,
+    modifier: str,
+    exercise_type: ExerciseType,
+    strategy_context,
+    review_adjustment: dict,
+    health_adjustment: dict,
+) -> tuple[int, int, int]:
+    if slot:
+        base_sets = int(slot["sets"])
+        reps_min, reps_max = slot["reps"]
+    else:
+        base_sets = GOAL_PARAMS[goal]["sets"]
+        reps_min, reps_max = _target_reps_range(goal, modifier, exercise_type)
+
+    if goal in {Goal.weight_loss, Goal.cardio}:
+        reps_min += 2
+        reps_max += 3
+    elif goal == Goal.mass_gain and exercise_type == ExerciseType.compound:
+        reps_min = max(6, reps_min)
+
+    modifier_sets = 1 if modifier == "hard" and exercise_type == ExerciseType.compound else -1 if modifier == "light" else 0
+    sets_count = max(
+        1,
+        min(
+            5,
+            round((base_sets + modifier_sets) * strategy_context.volume_factor)
+            + int(review_adjustment["sets_delta"])
+            + int(health_adjustment["sets_delta"]),
+        ),
+    )
+
+    target_reps = random.randint(int(reps_min), int(reps_max))
+    if exercise_type == ExerciseType.compound:
+        base_rest = 150 if target_reps <= 8 else 105
+    else:
+        base_rest = 60 if target_reps >= 15 else 75
+    rest_secs = round(
+        base_rest
+        * MODIFIER_DELTA[modifier]["rest_factor"]
+        * strategy_context.rest_factor
+        * float(review_adjustment["rest_factor"])
+        * float(health_adjustment["rest_factor"])
+    )
+    if modifier == "hard" and exercise_type == ExerciseType.compound:
+        rest_secs = max(rest_secs, 120)
+    return sets_count, target_reps, rest_secs
 
 
 def _starting_weight_for(ex: Exercise, equipment_codes_by_id: dict[int, str]) -> float:
@@ -376,10 +558,39 @@ async def generate_workout_session(
         mid = ex.primary_muscle_group_id
         by_mg.setdefault(mid, []).append(ex)
 
-    # Select exercises
-    selected: list[Exercise] = []
+    # Select exercises. The blueprint layer is derived from the imported workout
+    # library's structure: stable split-day slots, varied set/rep waves, and
+    # a base-to-volume-to-isolation flow. It does not copy fixed templates.
+    selected_slots: list[tuple[Exercise, dict | None]]
+    blueprint_key = _blueprint_key(profile, target_groups)
+    max_ex = _target_exercise_count(profile.preferred_duration_min, has_weighted_equipment)
+    if last_review and (last_review.skipped_exercise_ids or []):
+        max_ex = max(3, max_ex - 1)
+
+    selected_slots = _select_from_blueprint(
+        blueprint_key,
+        by_mg,
+        available_groups,
+        user_equipment_ids,
+        modifier,
+        has_weighted_equipment,
+        prefer_exercise_codes,
+        max_ex,
+    )
+
+    selected: list[Exercise] = [ex for ex, _ in selected_slots]
     seen_ids: set[int] = set()
+    for ex in selected:
+        seen_ids.add(ex.id)
+
+    if len(selected) < 3:
+        selected = []
+        selected_slots = []
+        seen_ids = set()
+
     for code, mg_id in muscle_groups:
+        if len(selected) >= max_ex:
+            break
         pool = by_mg.get(mg_id, [])
         if not pool: continue
         ranked = _rank_pool(pool, user_equipment_ids, modifier, has_weighted_equipment)
@@ -399,38 +610,25 @@ async def generate_workout_session(
             if ex.id not in seen_ids:
                 seen_ids.add(ex.id)
                 selected.append(ex)
-
-    # Limit by duration
-    goal = profile.goal or Goal.maintenance
-    params = GOAL_PARAMS[goal]
-    mod = MODIFIER_DELTA[modifier]
-    sets_count = max(
-        1,
-        round((params["sets"] + mod["sets"]) * strategy_context.volume_factor)
-        + int(review_adjustment["sets_delta"])
-        + int(health_adjustment["sets_delta"]),
-    )
-    rest_secs = round(
-        params["rest"]
-        * mod["rest_factor"]
-        * strategy_context.rest_factor
-        * float(review_adjustment["rest_factor"])
-        * float(health_adjustment["rest_factor"])
-    )
-    if modifier == "hard":
-        rest_secs = max(rest_secs, 120)
-    time_per_ex = sets_count * (45 + rest_secs) / 60
-    max_ex = max(3, int((profile.preferred_duration_min or 45) / time_per_ex))
-    if last_review and (last_review.skipped_exercise_ids or []):
-        max_ex = max(3, max_ex - 1)
-    selected = selected[:max_ex]
+                selected_slots.append((ex, None))
+            if len(selected) >= max_ex:
+                break
 
     # Assign volume and save
+    goal = profile.goal or Goal.maintenance
+    mod = MODIFIER_DELTA[modifier]
     from services.progression import calculate_next_weight
     result_list = []
-    for idx, ex in enumerate(selected):
-        reps_min, reps_max = _target_reps_range(goal, modifier, ex.exercise_type)
-        target_reps = random.randint(reps_min, reps_max)
+    for idx, (ex, slot) in enumerate(selected_slots[:max_ex]):
+        sets_count, target_reps, rest_secs = _slot_prescription(
+            slot,
+            goal,
+            modifier,
+            ex.exercise_type,
+            strategy_context,
+            review_adjustment,
+            health_adjustment,
+        )
         last_w = await _get_last_weight(session, profile.user_id, ex.id)
         start_weight = _starting_weight_for(ex, equipment_codes_by_id)
         calibrated_weight = None if last_w is not None else await calibrated_start_weight(
