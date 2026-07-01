@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import CallbackQuery, FSInputFile, Message
 
 
@@ -30,10 +31,14 @@ async def send_module_visual(
     can_use_caption = len(caption) <= 1000
 
     if isinstance(event, CallbackQuery):
+        try:
+            await event.answer()
+        except TelegramBadRequest:
+            pass
+
         if not can_use_caption:
             await event.message.answer_photo(photo)
             await event.message.answer(caption, reply_markup=reply_markup, parse_mode=parse_mode)
-            await event.answer()
             return
 
         await event.message.answer_photo(
@@ -42,7 +47,6 @@ async def send_module_visual(
             reply_markup=reply_markup,
             parse_mode=parse_mode,
         )
-        await event.answer()
         return
 
     if not can_use_caption:
