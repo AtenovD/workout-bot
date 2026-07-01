@@ -93,7 +93,8 @@ async def show_stats(event, user: User, session: AsyncSession):
 
 
 @router.callback_query(F.data == "gam:achieve")
-async def show_achievements(callback: CallbackQuery, user: User, session: AsyncSession):
+@router.message(F.text.in_({"🏆 Достижения", "🏆 Achievements"}))
+async def show_achievements(event: CallbackQuery | Message, user: User, session: AsyncSession):
     all_ach = await session.execute(select(Achievement).order_by(Achievement.category, Achievement.tier))
     achievements = all_ach.scalars().all()
 
@@ -104,7 +105,7 @@ async def show_achievements(callback: CallbackQuery, user: User, session: AsyncS
 
     if not achievements:
         await send_module_visual(
-            callback,
+            event,
             "achievements",
             "🏆 <b>Достижения</b>\n\nПока нет достижений в базе.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
@@ -130,7 +131,7 @@ async def show_achievements(callback: CallbackQuery, user: User, session: AsyncS
         text += f"  {icon} {tier_icon} <b>{ach.name}</b> — {ach.description or ''}\n"
 
     await send_module_visual(
-        callback,
+        event,
         "achievements",
         text,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[

@@ -24,15 +24,25 @@ def main_menu_keyboard(is_admin: bool = False, lang: str = "ru", telegram_id: in
 
 
 def admin_reply_keyboard(lang: str = "ru") -> ReplyKeyboardMarkup:
-    placeholder = "Admin tools" if lang == "en" else "Админ-панель"
+    placeholder = "Menu" if lang == "en" else "Меню"
     return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=t("menu_admin", lang))]],
+        keyboard=[
+            [KeyboardButton(text=t("menu_workout", lang))],
+            [
+                KeyboardButton(text=t("menu_progress", lang)),
+                KeyboardButton(text=t("menu_achievements", lang)),
+            ],
+            [
+                KeyboardButton(text=t("menu_calibration", lang)),
+                KeyboardButton(text=t("menu_schedule", lang)),
+            ],
+            [KeyboardButton(text=t("menu_challenge", lang))],
+            [
+                KeyboardButton(text=t("menu_equipment", lang)),
+                KeyboardButton(text=t("menu_settings", lang)),
+            ],
+            [KeyboardButton(text=t("menu_admin", lang))],
+        ],
         resize_keyboard=True,
         input_field_placeholder=placeholder,
     )
-
-
-def admin_entry_text(lang: str = "ru") -> str:
-    if lang == "en":
-        return "🔧 Admin button is available in the bottom keyboard."
-    return "🔧 Кнопка админа доступна в нижней клавиатуре."

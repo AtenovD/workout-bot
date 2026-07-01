@@ -112,7 +112,8 @@ async def test_main_menu_buttons_return_their_expected_sections(dispatcher, bot,
 
 @pytest.mark.asyncio
 async def test_progress_subbuttons_return_expected_outputs(dispatcher, bot, session, registered_user):
-    await _feed_callback(dispatcher, bot, session, "menu:progress", registered_user.telegram_id)
+    progress = await _feed_callback(dispatcher, bot, session, "menu:progress", registered_user.telegram_id)
+    assert progress[0]["method"] == "answerCallbackQuery"
 
     volume = await _feed_callback(dispatcher, bot, session, "prog:vol_chart", registered_user.telegram_id)
     assert "sendPhoto" in _methods(volume)

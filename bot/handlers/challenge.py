@@ -90,7 +90,8 @@ async def join_challenge(callback: CallbackQuery, user: User, session: AsyncSess
 
 
 @router.callback_query(F.data == "menu:challenge")
-async def challenge_from_menu(callback: CallbackQuery, user: User, session: AsyncSession):
+@router.message(F.text.in_({"🎯 30-дн. Челлендж", "🎯 30-day Challenge"}))
+async def challenge_from_menu(event: CallbackQuery | Message, user: User, session: AsyncSession):
     challenge = await session.execute(
         select(UserChallenge).where(UserChallenge.user_id == user.id)
     )
@@ -101,7 +102,7 @@ async def challenge_from_menu(callback: CallbackQuery, user: User, session: Asyn
             [InlineKeyboardButton(text="🔥 Присоединиться", callback_data="challenge:join")],
             [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:back")],
         ])
-        await send_module_visual(callback, "challenge",
+        await send_module_visual(event, "challenge",
             "🏆 <b>30-дневный челлендж</b>\n\n"
             "Тренируйся 30 дней подряд и получи:\n"
             f"🎁 <b>{CHALLENGE_XP_REWARD} XP</b>\n"
@@ -126,7 +127,7 @@ async def challenge_from_menu(callback: CallbackQuery, user: User, session: Asyn
         [InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:back")],
     ])
 
-    await send_module_visual(callback, "challenge",
+    await send_module_visual(event, "challenge",
         f"🏆 <b>30-дневный челлендж</b>\n\n"
         f"{status}\n"
         f"[{bar}] {progress_pct}%\n\n"

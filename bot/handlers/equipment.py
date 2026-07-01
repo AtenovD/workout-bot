@@ -106,11 +106,12 @@ async def _build_category_items_kb(
 # ── Entry point ──
 
 @router.callback_query(F.data == "menu:equipment")
-async def cb_equipment(callback: CallbackQuery, session: AsyncSession, state: FSMContext, user: User, **kwargs):
+@router.message(F.text.in_({"🎒 Инвентарь", "🎒 Equipment"}))
+async def cb_equipment(event: CallbackQuery | Message, session: AsyncSession, state: FSMContext, user: User, **kwargs):
     """Entry via main menu button — step 1: pick category."""
     await state.set_state(EquipmentStates.picking_category)
     await send_module_visual(
-        callback,
+        event,
         "inventory",
         "🏋️ <b>Выбери категорию инвентаря</b>:\n\n"
         "Сначала выбери тип, затем конкретные снаряды.",

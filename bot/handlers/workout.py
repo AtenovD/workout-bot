@@ -164,6 +164,7 @@ async def _skipped_exercises(session: AsyncSession, session_id: int):
 
 
 @router.message(Command("workout"))
+@router.message(F.text.in_({"🏋️ Тренировка", "🏋️ Workout"}))
 @router.callback_query(F.data == "menu:workout")
 async def start_workout(event, state: FSMContext, user: User, session: AsyncSession, **kwargs):
     msg = event.message if isinstance(event, CallbackQuery) else event

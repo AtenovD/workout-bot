@@ -58,6 +58,7 @@ async def _create_schedule(session: AsyncSession, user_id: int, mode: ScheduleMo
 
 
 @router.message(Command("schedule"))
+@router.message(F.text.in_({"📅 Расписание", "📅 Schedule"}))
 @router.callback_query(F.data == "menu:schedule")
 async def show_schedule(event, user: User, session: AsyncSession, **kwargs):
     msg = event.message if isinstance(event, CallbackQuery) else event

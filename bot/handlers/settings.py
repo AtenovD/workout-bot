@@ -18,7 +18,7 @@ router = Router()
 
 
 @router.callback_query(F.data == "menu:settings")
-@router.message(F.text == "⚙️ Настройки")
+@router.message(F.text.in_({"⚙️ Настройки", "⚙️ Settings"}))
 async def settings_menu(msg_or_cb, user: User, **kwargs):
     lang = user.language_code or "ru"
     kb = InlineKeyboardBuilder()

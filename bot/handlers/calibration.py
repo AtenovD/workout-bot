@@ -44,7 +44,7 @@ CALIBRATION_QUESTIONS = [
 
 CAL_IDX = {}  # question_idx -> question
 
-@router.message(F.text == "📋 Калибровка")
+@router.message(F.text.in_({"📋 Калибровка", "📋 Calibration"}))
 @router.callback_query(F.data == "menu:calibration")
 async def start_calibration(event, state: FSMContext, user: User, session: AsyncSession):
     is_callback = isinstance(event, CallbackQuery)

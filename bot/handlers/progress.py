@@ -1,8 +1,10 @@
 from datetime import date, timedelta
+import logging
 
 from aiogram import F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
-from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +21,7 @@ from services.gamification import get_title, get_xp_for_next_level
 from services.stats_chart import generate_volume_chart, generate_weight_chart
 
 router = Router()
+log = logging.getLogger(__name__)
 
 
 def _lang(user: User) -> str:
@@ -164,9 +167,24 @@ async def _progress_text(user: User, session: AsyncSession) -> str:
 
 @router.message(Command("progress"))
 @router.callback_query(F.data == "menu:progress")
+@router.message(F.text.in_({"📊 Прогресс", "📊 Progress"}))
 async def show_progress(event, user: User, session: AsyncSession, **kwargs):
     lang = _lang(user)
-    text = await _progress_text(user, session)
+    if isinstance(event, CallbackQuery):
+        try:
+            await event.answer()
+        except TelegramBadRequest:
+            pass
+
+    try:
+        text = await _progress_text(user, session)
+    except Exception:
+        log.exception("Failed to build progress dashboard for user_id=%s telegram_id=%s", user.id, user.telegram_id)
+        text = (
+            "📊 <b>Progress</b>\n\nI could not load your stats right now. Try again in a few seconds."
+            if lang == "en"
+            else "📊 <b>Прогресс</b>\n\nНе смог загрузить статистику прямо сейчас. Попробуй ещё раз через пару секунд."
+        )
     await send_module_visual(event, "progress", text, reply_markup=progress_menu_kb(lang))
 
 
