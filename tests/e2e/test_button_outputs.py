@@ -2,8 +2,11 @@ from datetime import datetime
 
 import pytest
 from aiogram import types
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bot.services.admin_access import set_admins
+from models.user import User
 
 
 def _cb(data: str, uid: int = 123456789) -> types.CallbackQuery:
@@ -136,6 +139,44 @@ async def test_english_workout_entry_keeps_english(dispatcher, bot, session):
     assert "Начинаем" not in rendered
     assert "Как себя" not in rendered
     assert "Облегч" not in rendered
+
+
+@pytest.mark.asyncio
+async def test_english_workout_overview_and_first_exercise_keep_english(dispatcher, bot, session, engine, registered_user):
+    maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with maker() as setup_session:
+        user = (
+            await setup_session.execute(select(User).where(User.telegram_id == registered_user.telegram_id))
+        ).scalar_one()
+        user.language_code = "en"
+        await setup_session.commit()
+
+    await _feed_callback(dispatcher, bot, session, "menu:workout", registered_user.telegram_id)
+    overview = await _feed_callback(dispatcher, bot, session, "mod:light", registered_user.telegram_id)
+    rendered = _texts(overview) + "\n" + "\n".join(_inline_button_texts(overview))
+
+    assert "Light workout" in rendered
+    assert "Goal:" in rendered
+    assert "Format:" in rendered
+    assert "Before working sets" in rendered
+    assert "Today's plan" in rendered
+    assert "Start" in rendered
+    assert "Regenerate" in rendered
+    assert "Цель:" not in rendered
+    assert "Перед рабочими" not in rendered
+    assert "План на сегодня" not in rendered
+
+    begin = next(cb for cb in _reply_callbacks(overview) if cb.startswith("wk:begin:"))
+    first_exercise = await _feed_callback(dispatcher, bot, session, begin, registered_user.telegram_id)
+    first_text = _texts(first_exercise) + "\n" + "\n".join(_inline_button_texts(first_exercise))
+
+    assert ("Working set" in first_text) or ("Warm-up set" in first_text)
+    assert "Hard" in first_text
+    assert "Easy" in first_text
+    assert "Рабочий подход" not in first_text
+    assert "Разминочный подход" not in first_text
+    assert "Тяжело" not in first_text
+    assert "Легко" not in first_text
 
 
 @pytest.mark.asyncio

@@ -205,11 +205,27 @@ def parse_strategy_note(notes: str | None) -> dict[str, str]:
     return result
 
 
-def format_strategy_note_title(notes: str | None, cycle_length_weeks: int = DEFAULT_CYCLE_LENGTH_WEEKS) -> str | None:
+PHASE_TITLES_EN = {
+    "base": "Base and technique week",
+    "progression": "Progression week",
+    "volume": "Volume week",
+    "intensity": "Intensity week",
+    "deload": "Deload week",
+}
+
+
+def format_strategy_note_title(
+    notes: str | None,
+    cycle_length_weeks: int = DEFAULT_CYCLE_LENGTH_WEEKS,
+    lang: str = "ru",
+) -> str | None:
     parsed = parse_strategy_note(notes)
     week_raw = parsed.get("week")
     phase_code = parsed.get("phase")
     if not week_raw or not phase_code:
         return None
+    if lang == "en":
+        title = PHASE_TITLES_EN.get(phase_code, phase_code.replace("_", " ").title())
+        return f"{title} · week {week_raw}/{cycle_length_weeks}"
     title = next((phase["title"] for phase in PHASES.values() if phase["code"] == phase_code), phase_code)
     return f"{title} · неделя {week_raw}/{cycle_length_weeks}"

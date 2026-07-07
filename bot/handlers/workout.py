@@ -67,30 +67,51 @@ def regen_text(lang: str = "ru") -> str:
         return "🔄 <b>Regenerating workout!</b>\n\nChoose intensity:"
     return "🔄 <b>Перегенерируем!</b>\n\nВыбери интенсивность:"
 
-def overview_kb(session_id):
+def overview_kb(session_id, lang: str = "ru"):
+    if lang == "en":
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="▶️ Start", callback_data=f"wk:begin:{session_id}")],
+            [InlineKeyboardButton(text="🔄 Regenerate", callback_data=f"wk:regen:{session_id}")],
+            [InlineKeyboardButton(text="◀️ Back", callback_data="menu:back")],
+        ])
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="▶️ Начать", callback_data=f"wk:begin:{session_id}")],
         [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"wk:regen:{session_id}")],
         [InlineKeyboardButton(text="◀️ Назад", callback_data="menu:back")],
     ])
 
-def set_log_kb(se_id, set_num, reps, weight, technique_url=None, is_warmup=False):
-    done_text = f"✅ Разминка {set_num} — готово" if is_warmup else f"✅ Подход {set_num} — выполнен!"
+def set_log_kb(se_id, set_num, reps, weight, technique_url=None, is_warmup=False, lang: str = "ru"):
+    if lang == "en":
+        done_text = f"✅ Warm-up {set_num} done" if is_warmup else f"✅ Set {set_num} done"
+        reps_text = "reps"
+        hard_text = "😰 Hard"
+        easy_text = "😊 Easy"
+        replace_text = "🔄 Replace"
+        skip_text = "⏭ Skip"
+        technique_text = "🎞 Technique"
+    else:
+        done_text = f"✅ Разминка {set_num} — готово" if is_warmup else f"✅ Подход {set_num} — выполнен!"
+        reps_text = "повт."
+        hard_text = "😰 Тяжело"
+        easy_text = "😊 Легко"
+        replace_text = "🔄 Заменить"
+        skip_text = "⏭ Пропустить"
+        technique_text = "🎞 Техника"
     rows = [
         [InlineKeyboardButton(text="−", callback_data=f"set:rm:{se_id}"),
-         InlineKeyboardButton(text=f"🔁 {reps} повт.", callback_data=f"set:rs:{se_id}"),
+         InlineKeyboardButton(text=f"🔁 {reps} {reps_text}", callback_data=f"set:rs:{se_id}"),
          InlineKeyboardButton(text="+", callback_data=f"set:rp:{se_id}")],
         [InlineKeyboardButton(text="−2.5", callback_data=f"set:wm:{se_id}"),
-         InlineKeyboardButton(text=f"⚖️ {float(weight):.1f} кг", callback_data=f"set:ws:{se_id}"),
+         InlineKeyboardButton(text=f"⚖️ {float(weight):.1f} {'kg' if lang == 'en' else 'кг'}", callback_data=f"set:ws:{se_id}"),
          InlineKeyboardButton(text="+2.5", callback_data=f"set:wp:{se_id}")],
         [InlineKeyboardButton(text=done_text, callback_data=f"set:done:{se_id}")],
-        [InlineKeyboardButton(text="😰 Тяжело", callback_data=f"set:hard:{se_id}"),
-         InlineKeyboardButton(text="😊 Легко", callback_data=f"set:easy:{se_id}")],
-        [InlineKeyboardButton(text="🔄 Заменить", callback_data=f"set:replace:{se_id}"),
-         InlineKeyboardButton(text="⏭ Пропустить", callback_data=f"set:skip:{se_id}")],
+        [InlineKeyboardButton(text=hard_text, callback_data=f"set:hard:{se_id}"),
+         InlineKeyboardButton(text=easy_text, callback_data=f"set:easy:{se_id}")],
+        [InlineKeyboardButton(text=replace_text, callback_data=f"set:replace:{se_id}"),
+         InlineKeyboardButton(text=skip_text, callback_data=f"set:skip:{se_id}")],
     ]
     if technique_url:
-        rows.append([InlineKeyboardButton(text="🎞 Техника", url=technique_url)])
+        rows.append([InlineKeyboardButton(text=technique_text, url=technique_url)])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -134,8 +155,9 @@ async def send_exercise_card(
         await message.answer(text, reply_markup=reply_markup, parse_mode="HTML")
 
 
-async def _muscle_names_by_id(session: AsyncSession) -> dict[int, str]:
-    result = await session.execute(select(MuscleGroup.id, MuscleGroup.name_ru))
+async def _muscle_names_by_id(session: AsyncSession, lang: str = "ru") -> dict[int, str]:
+    column = MuscleGroup.name_en if lang == "en" else MuscleGroup.name_ru
+    result = await session.execute(select(MuscleGroup.id, column))
     return {mg_id: name for mg_id, name in result.all()}
 
 
@@ -154,16 +176,23 @@ def _default_set_values(se, ex, modifier, phase, warmup_index):
             return target.reps, target.weight_kg
     return se.target_reps, float(se.target_weight_kg or 0.0)
 
-def rest_kb(se_id, next_set):
+def rest_kb(se_id, next_set, lang: str = "ru"):
+    if lang == "en":
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💪 Next set", callback_data=f"rest:next:{se_id}:{next_set}")],
+            [InlineKeyboardButton(text="⏭ Skip rest", callback_data=f"rest:skip:{se_id}:{next_set}")],
+        ])
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="💪 Следующий подход", callback_data=f"rest:next:{se_id}:{next_set}")],
         [InlineKeyboardButton(text="⏭ Пропустить отдых", callback_data=f"rest:skip:{se_id}:{next_set}")],
     ])
 
-def exercise_done_kb(next_se_id):
+def exercise_done_kb(next_se_id, lang: str = "ru"):
     if next_se_id:
-        return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="➡️ Следующее упражнение", callback_data=f"ex:next:{next_se_id}")]])
-    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏁 Завершить тренировку", callback_data="wk:finish")]])
+        text = "➡️ Next exercise" if lang == "en" else "➡️ Следующее упражнение"
+        return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, callback_data=f"ex:next:{next_se_id}")]])
+    text = "🏁 Finish workout" if lang == "en" else "🏁 Завершить тренировку"
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, callback_data="wk:finish")]])
 
 
 def review_intensity_kb(session_id: int):
@@ -217,6 +246,7 @@ async def start_workout(event, state: FSMContext, user: User, session: AsyncSess
 
 @router.callback_query(F.data.startswith("mod:"))
 async def choose_modifier(callback: CallbackQuery, state: FSMContext, user: User, session: AsyncSession):
+    lang = _lang(user)
     modifier = callback.data.split(":")[1]
     p = await session.execute(select(Profile).where(Profile.user_id == user.id))
     profile = p.scalar_one_or_none()
@@ -237,9 +267,9 @@ async def choose_modifier(callback: CallbackQuery, state: FSMContext, user: User
     await session.commit()
     await session.refresh(ws)
     total_time = sum(se.target_sets * (45 + se.rest_seconds) for se, _ in exercises) // 60 + 10
-    muscle_names = await _muscle_names_by_id(session)
-    strategy_title = format_strategy_note_title(ws.notes)
-    await state.update_data(workout_session_id=ws.id)
+    muscle_names = await _muscle_names_by_id(session, lang)
+    strategy_title = format_strategy_note_title(ws.notes, lang=lang)
+    await state.update_data(workout_session_id=ws.id, language=lang)
     await state.set_state(WorkoutStates.overview)
     await safe_edit_text(callback.message,
         format_workout_overview(
@@ -251,13 +281,16 @@ async def choose_modifier(callback: CallbackQuery, state: FSMContext, user: User
             profile.split_type,
             muscle_names,
             strategy_title,
+            lang=lang,
         ),
-        reply_markup=overview_kb(ws.id), parse_mode="HTML",
+        reply_markup=overview_kb(ws.id, lang), parse_mode="HTML",
     )
 
 
 @router.callback_query(F.data.startswith("wk:begin:"))
 async def begin_workout(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    lang = data.get("language", "ru")
     session_id = int(callback.data.split(":")[2])
     ws = await session.get(WorkoutSession, session_id)
     ws.status = SessionStatus.in_progress
@@ -285,14 +318,15 @@ async def begin_workout(callback: CallbackQuery, state: FSMContext, session: Asy
         current_reps=None,
         current_weight=None,
         workout_modifier=modifier,
+        language=lang,
     )
     await state.set_state(WorkoutStates.logging_set)
 
-    muscle_names = await _muscle_names_by_id(session)
+    muscle_names = await _muscle_names_by_id(session, lang)
     await send_exercise_card(
         callback.message,
-        format_exercise_card(first_se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names),
-        reply_markup=set_log_kb(first_se.id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup"),
+        format_exercise_card(first_se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names, lang=lang),
+        reply_markup=set_log_kb(first_se.id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang),
         ex=ex,
         edit_text=True,
     )
@@ -302,6 +336,7 @@ async def begin_workout(callback: CallbackQuery, state: FSMContext, session: Asy
 async def set_done(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     se_id = int(callback.data.split(":")[2])
     data = await state.get_data()
+    lang = data.get("language", "ru")
     se = await session.get(SessionExercise, se_id)
     ex = await session.get(Exercise, se.exercise_id)
     modifier = data.get("workout_modifier", "normal")
@@ -327,29 +362,29 @@ async def set_done(callback: CallbackQuery, state: FSMContext, session: AsyncSes
         if warmup_index < len(warmups):
             next_index = warmup_index + 1
             next_target = warmups[next_index - 1]
-            muscle_names = await _muscle_names_by_id(session)
+            muscle_names = await _muscle_names_by_id(session, lang)
             await state.update_data(warmup_index=next_index, current_reps=None, current_weight=None, feedback_rpe=None)
             await safe_edit_text(
                 callback.message,
-                format_exercise_card(se, ex, 1, modifier, is_warmup=True, warmup_index=next_index, muscle_names_by_id=muscle_names),
+                format_exercise_card(se, ex, 1, modifier, is_warmup=True, warmup_index=next_index, muscle_names_by_id=muscle_names, lang=lang),
                 reply_markup=set_log_kb(
                     se_id, next_index, next_target.reps, next_target.weight_kg,
-                    exercise_technique_url(ex), is_warmup=True,
+                    exercise_technique_url(ex), is_warmup=True, lang=lang,
                 ),
                 parse_mode="HTML",
             )
-            await callback.answer(f"✅ Разминка {warmup_index} засчитана.")
+            await callback.answer(f"✅ Warm-up {warmup_index} logged." if lang == "en" else f"✅ Разминка {warmup_index} засчитана.")
             return
 
-        muscle_names = await _muscle_names_by_id(session)
+        muscle_names = await _muscle_names_by_id(session, lang)
         await state.update_data(set_phase="work", current_set=1, current_reps=None, current_weight=None, feedback_rpe=None)
         await safe_edit_text(
             callback.message,
-            format_exercise_card(se, ex, 1, modifier, muscle_names_by_id=muscle_names),
-            reply_markup=set_log_kb(se_id, 1, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex)),
+            format_exercise_card(se, ex, 1, modifier, muscle_names_by_id=muscle_names, lang=lang),
+            reply_markup=set_log_kb(se_id, 1, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex), lang=lang),
             parse_mode="HTML",
         )
-        await callback.answer("✅ Разминка готова. Переходим к рабочим подходам.")
+        await callback.answer("✅ Warm-up done. Moving to working sets." if lang == "en" else "✅ Разминка готова. Переходим к рабочим подходам.")
         return
 
     session.add(ExerciseSet(
@@ -369,15 +404,19 @@ async def set_done(callback: CallbackQuery, state: FSMContext, session: AsyncSes
         )
         next_se = next_res.scalar_one_or_none()
         await state.update_data(current_set=1, warmup_index=1, set_phase="work", current_reps=None, current_weight=None, feedback_rpe=None)
-        await callback.message.edit_reply_markup(reply_markup=exercise_done_kb(next_se.id if next_se else None))
-        await callback.answer("✅ Упражнение выполнено!")
+        await callback.message.edit_reply_markup(reply_markup=exercise_done_kb(next_se.id if next_se else None, lang))
+        await callback.answer("✅ Exercise complete!" if lang == "en" else "✅ Упражнение выполнено!")
     else:
         await session.commit()
         next_set = current_set + 1
         await state.update_data(current_set=next_set, current_reps=None, current_weight=None, feedback_rpe=None)
         asyncio.create_task(run_rest_timer(callback.bot, callback.message.chat.id, se_id, next_set, se.rest_seconds or 90))
-        await callback.message.edit_reply_markup(reply_markup=rest_kb(se_id, next_set))
-        await callback.answer(f"✅ Подход {current_set} засчитан! Отдыхай {se.rest_seconds or 90} сек.")
+        await callback.message.edit_reply_markup(reply_markup=rest_kb(se_id, next_set, lang))
+        await callback.answer(
+            f"✅ Set {current_set} logged! Rest {se.rest_seconds or 90} sec."
+            if lang == "en"
+            else f"✅ Подход {current_set} засчитан! Отдыхай {se.rest_seconds or 90} сек."
+        )
 
 
 @router.callback_query(F.data.startswith("set:rm:") | F.data.startswith("set:rp:") |
@@ -387,6 +426,7 @@ async def adjust_values(callback: CallbackQuery, state: FSMContext, session: Asy
     action, se_id = parts[1], int(parts[2])
     se = await session.get(SessionExercise, se_id)
     data = await state.get_data()
+    lang = data.get("language", "ru")
     ex = await session.get(Exercise, se.exercise_id)
     modifier = data.get("workout_modifier", "normal")
     phase = data.get("set_phase", "work")
@@ -403,14 +443,16 @@ async def adjust_values(callback: CallbackQuery, state: FSMContext, session: Asy
     elif action == "wp": weight = round(weight + 2.5, 2)
     await state.update_data(current_reps=reps, current_weight=weight)
     await callback.message.edit_reply_markup(reply_markup=set_log_kb(
-        se_id, visible_set, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup",
+        se_id, visible_set, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang,
     ))
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("set:rs:") | F.data.startswith("set:ws:"))
-async def set_display_value(callback: CallbackQuery):
-    await callback.answer("Используй − / + рядом с показателем.")
+async def set_display_value(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get("language", "ru")
+    await callback.answer("Use − / + near the value." if lang == "en" else "Используй − / + рядом с показателем.")
 
 
 @router.callback_query(F.data.startswith("rest:"))
@@ -421,11 +463,12 @@ async def rest_done(callback: CallbackQuery, state: FSMContext, session: AsyncSe
     ex = await session.get(Exercise, se.exercise_id)
     await state.update_data(current_set=next_set, set_phase="work")
     data = await state.get_data()
+    lang = data.get("language", "ru")
     modifier = data.get("workout_modifier", "normal")
-    muscle_names = await _muscle_names_by_id(session)
+    muscle_names = await _muscle_names_by_id(session, lang)
     await safe_edit_text(callback.message,
-        format_exercise_card(se, ex, next_set, modifier, muscle_names_by_id=muscle_names),
-        reply_markup=set_log_kb(se_id, next_set, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex)),
+        format_exercise_card(se, ex, next_set, modifier, muscle_names_by_id=muscle_names, lang=lang),
+        reply_markup=set_log_kb(se_id, next_set, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex), lang=lang),
         parse_mode="HTML"
     )
 
@@ -436,6 +479,7 @@ async def next_exercise(callback: CallbackQuery, state: FSMContext, session: Asy
     se = await session.get(SessionExercise, se_id)
     ex = await session.get(Exercise, se.exercise_id)
     data = await state.get_data()
+    lang = data.get("language", "ru")
     modifier = data.get("workout_modifier", "normal")
     warmups = warmup_targets_for(se, ex, modifier)
     phase = "warmup" if warmups else "work"
@@ -448,18 +492,19 @@ async def next_exercise(callback: CallbackQuery, state: FSMContext, session: Asy
         current_reps=None,
         current_weight=None,
     )
-    muscle_names = await _muscle_names_by_id(session)
+    muscle_names = await _muscle_names_by_id(session, lang)
     await send_exercise_card(
         callback.message,
-        format_exercise_card(se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names),
-        reply_markup=set_log_kb(se_id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup"),
+        format_exercise_card(se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names, lang=lang),
+        reply_markup=set_log_kb(se_id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang),
         ex=ex,
     )
 
 
 
 @router.callback_query(F.data.startswith("wk:resume:"))
-async def resume_workout(callback, state, session):
+async def resume_workout(callback, state, session, user: User):
+    lang = _lang(user)
     session_id = int(callback.data.split(":")[2])
     ws = await session.get(WorkoutSession, session_id)
     if not ws:
@@ -467,7 +512,7 @@ async def resume_workout(callback, state, session):
         return
     ws.status = SessionStatus.in_progress
     await session.commit()
-    await state.update_data(workout_session_id=session_id, workout_modifier=ws.difficulty_modifier.value)
+    await state.update_data(workout_session_id=session_id, workout_modifier=ws.difficulty_modifier.value, language=lang)
     await state.set_state(WorkoutStates.in_exercise)
     res2 = await session.execute(
         select(SessionExercise)
@@ -491,11 +536,11 @@ async def resume_workout(callback, state, session):
         current_reps=None,
         current_weight=None,
     )
-    muscle_names = await _muscle_names_by_id(session)
+    muscle_names = await _muscle_names_by_id(session, lang)
     await send_exercise_card(
         callback.message,
-        "▶️ " + format_exercise_card(se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names),
-        reply_markup=set_log_kb(se.id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup"),
+        "▶️ " + format_exercise_card(se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names, lang=lang),
+        reply_markup=set_log_kb(se.id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang),
         ex=ex,
         edit_text=True,
     )
@@ -540,13 +585,14 @@ async def regen_workout(callback, state, session, user: User):
 
 @router.callback_query(F.data.startswith("set:replace:"))
 async def replace_exercise(callback, state, session, user):
+    lang = _lang(user)
     from models.exercise_alternatives import ExerciseAlternative
     from models.user_equipment import UserEquipment
     from models.exercise import EquipmentCategory
     se_id = int(callback.data.split(":")[2])
     se = await session.get(SessionExercise, se_id)
     if not se:
-        await callback.answer("Упражнение не найдено.")
+        await callback.answer("Exercise not found." if lang == "en" else "Упражнение не найдено.")
         return
     ex = await session.get(Exercise, se.exercise_id)
     alt_res = await session.execute(select(ExerciseAlternative).where(ExerciseAlternative.exercise_id == se.exercise_id))
@@ -559,13 +605,23 @@ async def replace_exercise(callback, state, session, user):
         if not alt_ex or not alt_ex.is_active:
             continue
         if alt_ex.equipment_category == EquipmentCategory.none or alt_ex.required_equipment_id in user_eq_ids:
-            buttons.append([InlineKeyboardButton(text=f"🔄 {alt_ex.name_ru}", callback_data=f"set:do_replace:{se_id}:{alt_ex.id}")])
+            alt_name = alt_ex.name_en if lang == "en" else alt_ex.name_ru
+            buttons.append([InlineKeyboardButton(text=f"🔄 {alt_name}", callback_data=f"set:do_replace:{se_id}:{alt_ex.id}")])
     if not buttons:
-        await callback.answer("Нет доступных замен с твоим инвентарём.", show_alert=True)
+        await callback.answer(
+            "No available replacements with your equipment." if lang == "en" else "Нет доступных замен с твоим инвентарём.",
+            show_alert=True,
+        )
         return
-    buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data=f"set:cancel_replace:{se_id}")])
+    buttons.append([InlineKeyboardButton(text="❌ Cancel" if lang == "en" else "❌ Отмена", callback_data=f"set:cancel_replace:{se_id}")])
+    ex_name = ex.name_en if lang == "en" else ex.name_ru
+    text = (
+        f"🔄 Replacement for <b>{ex_name}</b>\nChoose an alternative:"
+        if lang == "en"
+        else f"🔄 Замена для <b>{ex_name}</b>\nВыбери альтернативу:"
+    )
     await safe_edit_text(callback.message,
-        f"🔄 Замена для <b>{ex.name_ru}</b>\nВыбери альтернативу:",
+        text,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         parse_mode="HTML"
     )
@@ -578,12 +634,13 @@ async def do_replace_exercise(callback, state, session):
     se_id, new_ex_id = int(parts[2]), int(parts[3])
     se = await session.get(SessionExercise, se_id)
     new_ex = await session.get(Exercise, new_ex_id)
+    data = await state.get_data()
+    lang = data.get("language", "ru")
     if not se or not new_ex:
-        await callback.answer("Ошибка замены.")
+        await callback.answer("Replacement error." if lang == "en" else "Ошибка замены.")
         return
     se.exercise_id = new_ex_id
     await session.commit()
-    data = await state.get_data()
     cs = data.get("current_set", 1)
     modifier = data.get("workout_modifier", "normal")
     phase = data.get("set_phase", "work")
@@ -595,14 +652,15 @@ async def do_replace_exercise(callback, state, session):
     visible_set = warmup_index if phase == "warmup" else cs
     reps, weight = _default_set_values(se, new_ex, modifier, phase, warmup_index)
     await state.update_data(current_reps=None, current_weight=None)
-    muscle_names = await _muscle_names_by_id(session)
+    muscle_names = await _muscle_names_by_id(session, lang)
+    prefix = "✅ Replaced\n" if lang == "en" else "✅ Заменено\n"
     await send_exercise_card(
         callback.message,
-        "✅ Заменено\n" + format_exercise_card(
-            se, new_ex, cs, modifier, is_warmup=phase == "warmup", warmup_index=warmup_index, muscle_names_by_id=muscle_names,
+        prefix + format_exercise_card(
+            se, new_ex, cs, modifier, is_warmup=phase == "warmup", warmup_index=warmup_index, muscle_names_by_id=muscle_names, lang=lang,
         ),
         reply_markup=set_log_kb(
-            se_id, visible_set, reps, weight, exercise_technique_url(new_ex), is_warmup=phase == "warmup",
+            se_id, visible_set, reps, weight, exercise_technique_url(new_ex), is_warmup=phase == "warmup", lang=lang,
         ),
         ex=new_ex,
         edit_text=True,
@@ -616,6 +674,7 @@ async def cancel_replace(callback, state, session):
     se = await session.get(SessionExercise, se_id)
     ex = await session.get(Exercise, se.exercise_id)
     data = await state.get_data()
+    lang = data.get("language", "ru")
     cs = data.get("current_set", 1)
     modifier = data.get("workout_modifier", "normal")
     phase = data.get("set_phase", "work")
@@ -625,10 +684,10 @@ async def cancel_replace(callback, state, session):
     reps = data.get("current_reps") or default_reps
     weight = data.get("current_weight") if data.get("current_weight") is not None else default_weight
     weight = float(weight or 0.0)
-    muscle_names = await _muscle_names_by_id(session)
+    muscle_names = await _muscle_names_by_id(session, lang)
     await safe_edit_text(callback.message,
-        format_exercise_card(se, ex, cs, modifier, is_warmup=phase == "warmup", warmup_index=warmup_index, muscle_names_by_id=muscle_names),
-        reply_markup=set_log_kb(se_id, visible_set, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup"),
+        format_exercise_card(se, ex, cs, modifier, is_warmup=phase == "warmup", warmup_index=warmup_index, muscle_names_by_id=muscle_names, lang=lang),
+        reply_markup=set_log_kb(se_id, visible_set, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang),
         parse_mode="HTML"
     )
     await callback.answer()
@@ -640,6 +699,7 @@ async def set_too_hard(callback, state, session):
     se = await session.get(SessionExercise, se_id)
     ex = await session.get(Exercise, se.exercise_id)
     data = await state.get_data()
+    lang = data.get("language", "ru")
     cs = data.get("current_set", 1)
     modifier = data.get("workout_modifier", "normal")
     phase = data.get("set_phase", "work")
@@ -657,9 +717,13 @@ async def set_too_hard(callback, state, session):
     await state.update_data(current_weight=new_weight, current_reps=new_reps, feedback_rpe=9)
     await session.commit()
     await callback.message.edit_reply_markup(reply_markup=set_log_kb(
-        se_id, visible_set, new_reps, new_weight, exercise_technique_url(ex), is_warmup=phase == "warmup",
+        se_id, visible_set, new_reps, new_weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang,
     ))
-    await callback.answer(f"⬇️ Снизил до {new_weight:.1f} кг / {new_reps} повт.")
+    await callback.answer(
+        f"⬇️ Lowered to {new_weight:.1f} kg / {new_reps} reps."
+        if lang == "en"
+        else f"⬇️ Снизил до {new_weight:.1f} кг / {new_reps} повт."
+    )
 
 
 @router.callback_query(F.data.startswith("set:easy:"))
@@ -668,6 +732,7 @@ async def set_too_easy(callback, state, session):
     se = await session.get(SessionExercise, se_id)
     ex = await session.get(Exercise, se.exercise_id)
     data = await state.get_data()
+    lang = data.get("language", "ru")
     cs = data.get("current_set", 1)
     modifier = data.get("workout_modifier", "normal")
     phase = data.get("set_phase", "work")
@@ -685,9 +750,13 @@ async def set_too_easy(callback, state, session):
     await state.update_data(current_weight=new_weight, current_reps=new_reps, feedback_rpe=6)
     await session.commit()
     await callback.message.edit_reply_markup(reply_markup=set_log_kb(
-        se_id, visible_set, new_reps, new_weight, exercise_technique_url(ex), is_warmup=phase == "warmup",
+        se_id, visible_set, new_reps, new_weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang,
     ))
-    await callback.answer(f"⬆️ Поднял до {new_weight:.1f} кг / {new_reps} повт.")
+    await callback.answer(
+        f"⬆️ Raised to {new_weight:.1f} kg / {new_reps} reps."
+        if lang == "en"
+        else f"⬆️ Поднял до {new_weight:.1f} кг / {new_reps} повт."
+    )
 
 
 @router.callback_query(F.data == "wk:finish")
@@ -773,6 +842,8 @@ async def finish_workout(callback: CallbackQuery, state: FSMContext, user: User,
 
 @router.callback_query(F.data.startswith("set:skip:"))
 async def skip_exercise(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    lang = data.get("language", "ru")
     se_id = int(callback.data.split(":")[2])
     se = await session.get(SessionExercise, se_id)
     se.is_completed = True
@@ -784,8 +855,8 @@ async def skip_exercise(callback: CallbackQuery, state: FSMContext, session: Asy
         .order_by(asc(SessionExercise.order_index)).limit(1)
     )
     next_se = next_res.scalar_one_or_none()
-    await callback.answer("Пропущено")
-    await callback.message.edit_reply_markup(reply_markup=exercise_done_kb(next_se.id if next_se else None))
+    await callback.answer("Skipped" if lang == "en" else "Пропущено")
+    await callback.message.edit_reply_markup(reply_markup=exercise_done_kb(next_se.id if next_se else None, lang))
 
 
 @router.callback_query(F.data.startswith("review:intensity:"))
