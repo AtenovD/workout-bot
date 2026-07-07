@@ -16,7 +16,7 @@ from models.gamification import UserStats
 from models.challenge import UserChallenge
 from models.exercise import Exercise, MuscleGroup
 from services.gamification import calculate_xp, get_level_from_xp, get_title
-from services.calories import calculate_calories_burned, DEFAULT_MET
+from services.calories import estimate_completed_workout_calories
 from services.pr_detection import detect_prs
 from services.plateau_detection import check_and_apply_plateau
 from services.deload_on_return import apply_return_deload
@@ -779,7 +779,7 @@ async def finish_workout(callback: CallbackQuery, state: FSMContext, user: User,
     )
     total_vol = float(vol_res.scalar() or 0)
     ws.total_volume_kg = total_vol
-    ws.calories_burned = calculate_calories_burned(DEFAULT_MET["compound"], 75, ws.duration_min)
+    ws.calories_burned = await estimate_completed_workout_calories(session, user.id, session_id)
     stats_res = await session.execute(select(UserStats).where(UserStats.user_id == user.id))
     stats = stats_res.scalar_one()
     old_level = stats.level
