@@ -23,6 +23,12 @@ class ChannelRef:
     display: str
 
 
+@dataclass(frozen=True)
+class SubscriptionCheck:
+    ok: bool
+    verify_error: bool = False
+
+
 def normalize_required_channel(raw: str | None) -> ChannelRef | None:
     value = (raw or "").strip()
     if not value:
@@ -76,23 +82,26 @@ async def set_required_en_channel(session: AsyncSession, raw: str | None) -> Cha
     return channel
 
 
-async def has_required_subscription(bot: Bot, session: AsyncSession, user: User) -> bool:
+async def check_required_subscription(bot: Bot, session: AsyncSession, user: User) -> SubscriptionCheck:
     if (user.language_code or "ru") != "en":
-        return True
+        return SubscriptionCheck(ok=True)
 
     channel = await get_required_en_channel(session)
     if not channel:
-        return True
+        return SubscriptionCheck(ok=True)
 
     try:
         member = await bot.get_chat_member(channel.chat_ref, user.telegram_id)
     except Exception:
-        # A bad channel config should not brick the bot. Admin stats show the configured channel.
-        return True
+        return SubscriptionCheck(ok=False, verify_error=True)
 
     status = member.get("status") if isinstance(member, dict) else getattr(member, "status", None)
     status_value = getattr(status, "value", status)
-    return status_value in ALLOWED_MEMBER_STATUSES
+    return SubscriptionCheck(ok=status_value in ALLOWED_MEMBER_STATUSES)
+
+
+async def has_required_subscription(bot: Bot, session: AsyncSession, user: User) -> bool:
+    return (await check_required_subscription(bot, session, user)).ok
 
 
 async def should_block_for_subscription(bot: Bot, session: AsyncSession, user: User) -> bool:
@@ -119,6 +128,15 @@ def subscription_gate_text(channel: ChannelRef) -> str:
         "Before using the English version of the bot, please subscribe to our Telegram channel.\n\n"
         f"Channel: <b>{escape(channel.display)}</b>\n\n"
         "Tap <b>Subscribe</b>, then return here and press <b>Check subscription</b>."
+    )
+
+
+def subscription_verify_error_text(channel: ChannelRef) -> str:
+    return (
+        "🔒 <b>Subscription required</b>\n\n"
+        "I could not verify your subscription right now, so access stays locked.\n\n"
+        f"Channel: <b>{escape(channel.display)}</b>\n\n"
+        "Please subscribe and press <b>Check subscription</b> again. If this keeps happening, the channel setup needs admin attention."
     )
 
 

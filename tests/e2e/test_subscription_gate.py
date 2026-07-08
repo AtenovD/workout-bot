@@ -119,6 +119,23 @@ async def test_subscribed_english_user_enters_main_menu(dispatcher, bot, session
 
 
 @pytest.mark.asyncio
+async def test_verification_error_keeps_english_user_locked(dispatcher, bot, session, engine, registered_user):
+    await _set_channel(engine)
+    maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with maker() as setup:
+        user = (await setup.execute(select(User).where(User.telegram_id == registered_user.telegram_id))).scalar_one()
+        user.language_code = "en"
+        await setup.commit()
+
+    bot.session.chat_member_status = "error"
+    requests = await _feed_message(dispatcher, bot, session, "/start", registered_user.telegram_id)
+
+    assert "Subscription required" in _texts(requests)
+    assert "sub:check" in _callbacks(requests)
+    assert "GYM Control Center" not in _texts(requests)
+
+
+@pytest.mark.asyncio
 async def test_new_user_selecting_english_gets_subscription_gate(dispatcher, bot, session, engine):
     await _set_channel(engine)
     uid = 919191

@@ -7,10 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.keyboards.main_menu import admin_reply_keyboard, main_menu_keyboard
 from bot.services.admin_access import is_admin_telegram_id
 from bot.services.subscription_gate import (
+    check_required_subscription,
     get_required_en_channel,
-    has_required_subscription,
     subscription_gate_markup,
     subscription_gate_text,
+    subscription_verify_error_text,
 )
 from bot.states.states import OnboardingStates
 from bot.texts import t
@@ -41,16 +42,22 @@ def _start_calibration_kb() -> InlineKeyboardMarkup:
 
 @router.callback_query(F.data == "sub:check")
 async def check_subscription(callback: CallbackQuery, state: FSMContext, user: User, session: AsyncSession):
-    if not await has_required_subscription(callback.bot, session, user):
+    check = await check_required_subscription(callback.bot, session, user)
+    if not check.ok:
         channel = await get_required_en_channel(session)
         if channel:
             await safe_edit_text(
                 callback.message,
-                subscription_gate_text(channel),
+                subscription_verify_error_text(channel) if check.verify_error else subscription_gate_text(channel),
                 reply_markup=subscription_gate_markup(channel),
                 parse_mode="HTML",
             )
-        await callback.answer("Subscription was not found yet. Subscribe and try again.", show_alert=True)
+        answer = (
+            "I cannot verify the channel right now. Access remains locked."
+            if check.verify_error
+            else "Subscription was not found yet. Subscribe and try again."
+        )
+        await callback.answer(answer, show_alert=True)
         return
 
     await callback.answer("Subscription confirmed.")

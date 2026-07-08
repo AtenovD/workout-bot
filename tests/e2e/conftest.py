@@ -81,6 +81,8 @@ class MockSession(AiohttpSession):
         if method_name == "answerCallbackQuery":
             return True
         if method_name == "getChatMember":
+            if self.chat_member_status == "error":
+                raise RuntimeError("Telegram cannot verify membership")
             user_id = payload.get("user_id", 123456789)
             return {
                 "status": self.chat_member_status,
