@@ -12,6 +12,7 @@ from models.exercise_alternatives import ExerciseAlternative
 from models.referral import Referral
 from models.reminder import Reminder
 from models.calibration import CalibrationAnswer
+from models.app_setting import AppSetting
 
 __all__ = [
     "User",
@@ -38,4 +39,5 @@ __all__ = [
     "Referral",
     "Reminder",
     "CalibrationAnswer",
+    "AppSetting",
 ]

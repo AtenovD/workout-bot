@@ -9,6 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.main_menu import admin_reply_keyboard, main_menu_keyboard
 from bot.services.admin_access import is_admin_telegram_id
+from bot.services.subscription_gate import (
+    get_required_en_channel,
+    should_block_for_subscription,
+    subscription_gate_markup,
+    subscription_gate_text,
+)
 from bot.states.states import OnboardingStates
 from bot.utils.message_edit import safe_edit_text
 from models.calibration import CalibrationAnswer
@@ -256,6 +262,15 @@ async def cmd_start(message: Message, state: FSMContext, user: User, session: As
     profile = result.scalar_one_or_none()
     lang = _lang(user.language_code)
     if profile and profile.calibrated_at:
+        if await should_block_for_subscription(message.bot, session, user):
+            channel = await get_required_en_channel(session)
+            if channel:
+                await message.answer(
+                    subscription_gate_text(channel),
+                    reply_markup=subscription_gate_markup(channel),
+                    parse_mode="HTML",
+                )
+            return
         await message.answer(
             _welcome_back_text(message.from_user.first_name, lang),
             reply_markup=admin_reply_keyboard(lang)
@@ -287,6 +302,18 @@ async def onboarding_language(callback: CallbackQuery, state: FSMContext, user: 
     await session.commit()
     await state.update_data(language=lang)
     await state.set_state(OnboardingStates.welcome)
+
+    if await should_block_for_subscription(callback.bot, session, user):
+        channel = await get_required_en_channel(session)
+        if channel:
+            await safe_edit_text(
+                callback.message,
+                subscription_gate_text(channel),
+                reply_markup=subscription_gate_markup(channel),
+                parse_mode="HTML",
+            )
+        await callback.answer()
+        return
 
     if lang == "en":
         text = (

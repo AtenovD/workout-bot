@@ -42,6 +42,7 @@ from bot.handlers.settings import router as settings_router
 from bot.handlers.challenge import router as challenge_router
 from bot.handlers.help import router as help_router
 from bot.handlers.admin import router as admin_router
+from bot.handlers.subscription import router as subscription_router
 
 structlog.configure(
     wrapper_class=structlog.make_filtering_bound_logger(logging.INFO)
@@ -71,6 +72,7 @@ async def main() -> None:
     # calibration_router handles /calibration command (re-calibration)
     dp.include_routers(
         onboarding.router,
+        subscription_router,
         menu.router,
         calibration_router,
         equipment_router,

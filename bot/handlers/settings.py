@@ -10,6 +10,12 @@ from models.workout import WorkoutSession, SessionStatus
 from models.body_measurement import BodyMeasurement
 from models.personal_record import PersonalRecord
 from bot.keyboards.main_menu import main_menu_keyboard
+from bot.services.subscription_gate import (
+    get_required_en_channel,
+    should_block_for_subscription,
+    subscription_gate_markup,
+    subscription_gate_text,
+)
 from bot.texts import t
 from bot.utils.module_visuals import send_module_visual
 from bot.utils.message_edit import safe_edit_text
@@ -53,6 +59,18 @@ async def save_language(cb: CallbackQuery, user: User, session: AsyncSession):
 
     user.language_code = language_code
     await session.commit()
+
+    if await should_block_for_subscription(cb.bot, session, user):
+        channel = await get_required_en_channel(session)
+        if channel:
+            await safe_edit_text(
+                cb.message,
+                subscription_gate_text(channel),
+                reply_markup=subscription_gate_markup(channel),
+                parse_mode="HTML",
+            )
+        await cb.answer()
+        return
 
     labels = {"ru": "Русский", "en": "English"}
     await safe_edit_text(cb.message,

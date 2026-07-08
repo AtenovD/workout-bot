@@ -72,6 +72,7 @@ class MockSession(AiohttpSession):
     def __init__(self):
         super().__init__(api=MockTelegramServer(base="http://testserver/bot", file="http://testserver/file/bot"))
         self.requests = []
+        self.chat_member_status = "member"
 
     async def make_request(self, bot, method, **kwargs):
         method_name = getattr(method, "__api_method__", method.__class__.__name__)
@@ -79,6 +80,12 @@ class MockSession(AiohttpSession):
         self.requests.append({"method": method_name, "payload": payload})
         if method_name == "answerCallbackQuery":
             return True
+        if method_name == "getChatMember":
+            user_id = payload.get("user_id", 123456789)
+            return {
+                "status": self.chat_member_status,
+                "user": {"id": user_id, "is_bot": False, "first_name": "TestUser"},
+            }
         if method_name == "getMe":
             return TelegramUser(id=123456, is_bot=True, first_name="TestBot", username="test_workout_bot")
         return {
@@ -186,9 +193,11 @@ async def dispatcher(event_loop, engine):
     from bot.handlers.challenge import router as challenge_router
     from bot.handlers.help import router as help_router
     from bot.handlers.admin import router as admin_router
+    from bot.handlers.subscription import router as subscription_router
 
     dp.include_routers(
         onboarding.router,
+        subscription_router,
         menu.router,
         calibration_router,
         equipment_router,

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.main_menu import main_menu_keyboard
 from bot.services.admin_access import is_admin_telegram_id
+from bot.services.subscription_gate import get_required_en_channel, normalize_required_channel, set_required_en_channel
 from bot.utils.message_edit import safe_edit_text
 from models.challenge import UserChallenge
 from models.gamification import UserStats
@@ -22,11 +23,13 @@ router = Router()
 
 class AdminStates(StatesGroup):
     entering_broadcast = State()
+    entering_channel = State()
 
 
 def _admin_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text="🔗 EN required channel", callback_data="admin:channel")],
             [
                 InlineKeyboardButton(text="📣 Рассылка RU", callback_data="admin:broadcast:ru"),
                 InlineKeyboardButton(text="📣 Broadcast EN", callback_data="admin:broadcast:en"),
@@ -103,8 +106,12 @@ async def _admin_stats(session: AsyncSession) -> str:
 
     calibration_pct = int(calibrated / users_total * 100) if users_total else 0
     completion_pct = int(sessions_completed / sessions_total * 100) if sessions_total else 0
+    required_channel = await get_required_en_channel(session)
+    required_channel_label = required_channel.display if required_channel else "off"
 
     return (
+        "<b>EN subscription gate</b>\n"
+        f"🔗 Required channel: <b>{required_channel_label}</b>\n\n"
         "🔧 <b>Админ-панель</b>\n\n"
         "<b>Пользователи</b>\n"
         f"👥 Всего: <b>{users_total}</b>\n"
@@ -147,6 +154,57 @@ async def admin_menu_cb(callback: CallbackQuery, user: User, session: AsyncSessi
         return
     await safe_edit_text(callback.message, await _admin_stats(session), reply_markup=_admin_kb(), parse_mode="HTML")
     await callback.answer()
+
+
+@router.callback_query(F.data == "admin:channel")
+async def ask_required_channel(callback: CallbackQuery, state: FSMContext, user: User, session: AsyncSession):
+    if _deny_message(user.telegram_id):
+        await callback.answer("⛔ No access", show_alert=True)
+        return
+    channel = await get_required_en_channel(session)
+    current = channel.display if channel else "off"
+    await state.set_state(AdminStates.entering_channel)
+    await safe_edit_text(
+        callback.message,
+        "🔗 <b>EN required channel</b>\n\n"
+        f"Current: <b>{current}</b>\n\n"
+        "Send the public channel username or link, for example:\n"
+        "<code>@my_channel</code>\n"
+        "<code>https://t.me/my_channel</code>\n\n"
+        "Send <code>off</code> to disable. The bot must be able to check channel members.",
+        parse_mode="HTML",
+    )
+    await callback.answer()
+
+
+@router.message(AdminStates.entering_channel, F.text)
+async def save_required_channel(message: Message, state: FSMContext, session: AsyncSession):
+    if _deny_message(message.from_user.id):
+        await message.answer("⛔ No access.")
+        await state.clear()
+        return
+    raw = message.text.strip()
+    if raw == "/cancel":
+        await state.clear()
+        await message.answer("Channel setup cancelled.", reply_markup=main_menu_keyboard(telegram_id=message.from_user.id))
+        return
+
+    if raw.lower() not in {"off", "clear", "none", "-", "disable", "disabled"} and not normalize_required_channel(raw):
+        await message.answer("I cannot recognize this channel. Send @channel, https://t.me/channel, or off.")
+        return
+
+    channel = await set_required_en_channel(session, raw)
+    await session.commit()
+    await state.clear()
+    if channel:
+        text = (
+            "✅ EN subscription gate is enabled.\n"
+            f"Required channel: <b>{channel.display}</b>\n\n"
+            "English users will be stopped on /start until they subscribe."
+        )
+    else:
+        text = "✅ EN subscription gate is disabled."
+    await message.answer(text, reply_markup=main_menu_keyboard(telegram_id=message.from_user.id), parse_mode="HTML")
 
 
 @router.callback_query(F.data.startswith("admin:broadcast:"))
