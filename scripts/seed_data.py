@@ -180,6 +180,21 @@ INACTIVE_EXERCISE_CODES = {
 }
 
 # ─── Achievements ─────────────────────────────────────────────────────────────
+BROKEN_MEDIA_URL_MARKERS = (
+    "raw.githubusercontent.com/yuhonas/free-exercise-db/",
+)
+
+
+def clean_media_url(url: str | None) -> str | None:
+    value = (url or "").strip()
+    if not value:
+        return None
+    normalized = value.lower()
+    if any(marker in normalized for marker in BROKEN_MEDIA_URL_MARKERS):
+        return None
+    return value
+
+
 ACHIEVEMENTS_DATA = [
     # Consistency
     {"code": "first_workout",    "name": "Первый шаг",         "icon": "👟", "description": "Выполни первую тренировку",      "category": "consistency", "tier": "bronze",   "xp_reward": 50,  "condition": {"type": "total_workouts", "value": 1}},
@@ -271,15 +286,16 @@ async def seed_exercises(session, equipment_map, muscle_map):
             "description": ex.get("description"),
             "instructions": ex.get("instructions"),
             "tips": ex.get("tips"),
-            "common_mistakes": ex.get("common_mistakes"),
+            "common_mistakes": ex.get("common_mistakes") or ex.get("mistakes"),
             "primary_muscle_group_id": muscle_id,
             "required_equipment_id": eq_id,
             "equipment_category": eq_cat,
             "exercise_type": ex_type,
             "difficulty": ex.get("difficulty", 3),
             "met_value": ex.get("met_value"),
-            "gif_url": ex.get("gif_url"),
-            "photo_url": ex.get("photo_url"),
+            "gif_url": clean_media_url(ex.get("gif_url")),
+            "photo_url": clean_media_url(ex.get("photo_url")),
+            "video_url": clean_media_url(ex.get("video_url")),
             "is_active": ex.get("is_active", ex["code"] not in INACTIVE_EXERCISE_CODES),
         }
 

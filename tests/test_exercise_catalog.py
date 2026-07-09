@@ -32,16 +32,36 @@ def test_active_exercise_catalog_has_valid_references_and_media():
         muscle = ex.get("muscle")
         equipment = ex.get("equipment")
         resolved_equipment = seed_data.EQUIPMENT_ALIASES.get(equipment, equipment) if equipment else None
-        has_media = bool(ex.get("gif_url") or ex.get("photo_url") or ex.get("video_url"))
+        has_media = bool(
+            seed_data.clean_media_url(ex.get("gif_url"))
+            or seed_data.clean_media_url(ex.get("photo_url"))
+            or seed_data.clean_media_url(ex.get("video_url"))
+        )
+        has_technique = bool(ex.get("instructions") or ex.get("tips") or ex.get("common_mistakes") or ex.get("mistakes"))
 
         if muscle not in muscle_codes:
             bad.append(f"{ex['code']}: bad muscle {muscle}")
         if resolved_equipment and resolved_equipment not in equipment_codes:
             bad.append(f"{ex['code']}: bad equipment {equipment}->{resolved_equipment}")
-        if not has_media:
-            bad.append(f"{ex['code']}: missing media")
+        if not has_media and not has_technique:
+            bad.append(f"{ex['code']}: missing media or technique")
 
     assert bad == []
+
+
+def test_exercise_catalog_does_not_treat_broken_raw_github_urls_as_media():
+    broken = []
+    for raw in _seed_exercises():
+        ex = _normalized(raw)
+        for field in ("gif_url", "photo_url", "video_url"):
+            value = ex.get(field)
+            if value and seed_data.clean_media_url(value) is None:
+                broken.append(f"{ex['code']}:{field}")
+
+    assert broken
+    assert seed_data.clean_media_url(
+        "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/0150/0150.gif"
+    ) is None
 
 
 def test_equipment_catalog_has_clean_labels():

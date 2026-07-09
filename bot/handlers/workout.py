@@ -80,7 +80,62 @@ def overview_kb(session_id, lang: str = "ru"):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="menu:back")],
     ])
 
-def set_log_kb(se_id, set_num, reps, weight, technique_url=None, is_warmup=False, lang: str = "ru"):
+BROKEN_MEDIA_URL_MARKERS = (
+    "raw.githubusercontent.com/yuhonas/free-exercise-db/",
+)
+
+
+def _is_broken_media_url(url: str | None) -> bool:
+    if not url:
+        return False
+    normalized = url.strip().lower()
+    return any(marker in normalized for marker in BROKEN_MEDIA_URL_MARKERS)
+
+
+def _valid_media_url(url: str | None) -> str | None:
+    value = (url or "").strip()
+    if not value or _is_broken_media_url(value):
+        return None
+    return value
+
+
+def _exercise_name(ex: Exercise, lang: str) -> str:
+    return (ex.name_en if lang == "en" else ex.name_ru) or ex.name_en or ex.name_ru or ex.code
+
+
+def exercise_has_technique(ex: Exercise) -> bool:
+    return bool(ex.instructions or ex.tips or ex.common_mistakes or ex.description)
+
+
+def _technique_text(ex: Exercise, lang: str) -> str:
+    name = _exercise_name(ex, lang)
+    lines = [f"🎞 <b>{name}</b>"]
+    if lang == "en":
+        lines.append("\nTechnique notes:")
+    else:
+        lines.append("\nТехника выполнения:")
+
+    if ex.description:
+        lines.append(str(ex.description))
+    if ex.instructions:
+        title = "Steps" if lang == "en" else "Шаги"
+        lines.append(f"\n<b>{title}</b>")
+        lines.extend(f"{idx}. {item}" for idx, item in enumerate(ex.instructions, start=1))
+    if ex.tips:
+        title = "Tips" if lang == "en" else "Подсказки"
+        lines.append(f"\n<b>{title}</b>")
+        lines.extend(f"• {item}" for item in ex.tips)
+    if ex.common_mistakes:
+        title = "Common mistakes" if lang == "en" else "Частые ошибки"
+        lines.append(f"\n<b>{title}</b>")
+        lines.extend(f"• {item}" for item in ex.common_mistakes)
+    if len(lines) <= 2:
+        fallback = "Technique media is not added yet." if lang == "en" else "Медиа с техникой пока не добавлено."
+        lines.append(fallback)
+    return "\n".join(lines)
+
+
+def set_log_kb(se_id, set_num, reps, weight, technique_url=None, is_warmup=False, lang: str = "ru", has_technique: bool = False):
     if lang == "en":
         done_text = f"✅ Warm-up {set_num} done" if is_warmup else f"✅ Set {set_num} done"
         reps_text = "reps"
@@ -112,11 +167,30 @@ def set_log_kb(se_id, set_num, reps, weight, technique_url=None, is_warmup=False
     ]
     if technique_url:
         rows.append([InlineKeyboardButton(text=technique_text, url=technique_url)])
+    elif has_technique:
+        rows.append([InlineKeyboardButton(text=technique_text, callback_data=f"set:tech:{se_id}")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def exercise_technique_url(ex):
-    return getattr(ex, "gif_url", None) or getattr(ex, "photo_url", None) or getattr(ex, "video_url", None)
+    return (
+        _valid_media_url(getattr(ex, "gif_url", None))
+        or _valid_media_url(getattr(ex, "photo_url", None))
+        or _valid_media_url(getattr(ex, "video_url", None))
+    )
+
+
+def exercise_log_kb(ex: Exercise, se_id, set_num, reps, weight, *, is_warmup=False, lang: str = "ru"):
+    return set_log_kb(
+        se_id,
+        set_num,
+        reps,
+        weight,
+        exercise_technique_url(ex),
+        is_warmup=is_warmup,
+        lang=lang,
+        has_technique=exercise_has_technique(ex),
+    )
 
 
 async def send_exercise_card(
@@ -127,10 +201,12 @@ async def send_exercise_card(
     *,
     edit_text: bool = False,
 ):
-    if getattr(ex, "gif_url", None):
+    gif_url = _valid_media_url(getattr(ex, "gif_url", None))
+    photo_url = _valid_media_url(getattr(ex, "photo_url", None))
+    if gif_url:
         try:
             await message.answer_animation(
-                ex.gif_url,
+                gif_url,
                 caption=text,
                 reply_markup=reply_markup,
                 parse_mode="HTML",
@@ -138,10 +214,10 @@ async def send_exercise_card(
             return
         except Exception:
             pass
-    if getattr(ex, "photo_url", None):
+    if photo_url:
         try:
             await message.answer_photo(
-                ex.photo_url,
+                photo_url,
                 caption=text,
                 reply_markup=reply_markup,
                 parse_mode="HTML",
@@ -326,7 +402,7 @@ async def begin_workout(callback: CallbackQuery, state: FSMContext, session: Asy
     await send_exercise_card(
         callback.message,
         format_exercise_card(first_se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names, lang=lang),
-        reply_markup=set_log_kb(first_se.id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang),
+        reply_markup=exercise_log_kb(ex, first_se.id, 1, reps, weight, is_warmup=phase == "warmup", lang=lang),
         ex=ex,
         edit_text=True,
     )
@@ -367,10 +443,7 @@ async def set_done(callback: CallbackQuery, state: FSMContext, session: AsyncSes
             await safe_edit_text(
                 callback.message,
                 format_exercise_card(se, ex, 1, modifier, is_warmup=True, warmup_index=next_index, muscle_names_by_id=muscle_names, lang=lang),
-                reply_markup=set_log_kb(
-                    se_id, next_index, next_target.reps, next_target.weight_kg,
-                    exercise_technique_url(ex), is_warmup=True, lang=lang,
-                ),
+                reply_markup=exercise_log_kb(ex, se_id, next_index, next_target.reps, next_target.weight_kg, is_warmup=True, lang=lang),
                 parse_mode="HTML",
             )
             await callback.answer(f"✅ Warm-up {warmup_index} logged." if lang == "en" else f"✅ Разминка {warmup_index} засчитана.")
@@ -381,7 +454,7 @@ async def set_done(callback: CallbackQuery, state: FSMContext, session: AsyncSes
         await safe_edit_text(
             callback.message,
             format_exercise_card(se, ex, 1, modifier, muscle_names_by_id=muscle_names, lang=lang),
-            reply_markup=set_log_kb(se_id, 1, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex), lang=lang),
+            reply_markup=exercise_log_kb(ex, se_id, 1, se.target_reps, se.target_weight_kg or 0.0, lang=lang),
             parse_mode="HTML",
         )
         await callback.answer("✅ Warm-up done. Moving to working sets." if lang == "en" else "✅ Разминка готова. Переходим к рабочим подходам.")
@@ -442,9 +515,9 @@ async def adjust_values(callback: CallbackQuery, state: FSMContext, session: Asy
     elif action == "wm": weight = max(0.0, round(weight - 2.5, 2))
     elif action == "wp": weight = round(weight + 2.5, 2)
     await state.update_data(current_reps=reps, current_weight=weight)
-    await callback.message.edit_reply_markup(reply_markup=set_log_kb(
-        se_id, visible_set, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang,
-    ))
+    await callback.message.edit_reply_markup(
+        reply_markup=exercise_log_kb(ex, se_id, visible_set, reps, weight, is_warmup=phase == "warmup", lang=lang)
+    )
     await callback.answer()
 
 
@@ -453,6 +526,24 @@ async def set_display_value(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     lang = data.get("language", "ru")
     await callback.answer("Use − / + near the value." if lang == "en" else "Используй − / + рядом с показателем.")
+
+
+@router.callback_query(F.data.startswith("set:tech:"))
+async def show_exercise_technique(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    se_id = int(callback.data.split(":")[2])
+    data = await state.get_data()
+    lang = data.get("language", "ru")
+    se = await session.get(SessionExercise, se_id)
+    if not se:
+        await callback.answer("Exercise not found." if lang == "en" else "Упражнение не найдено.", show_alert=True)
+        return
+    ex = await session.get(Exercise, se.exercise_id)
+    if not ex:
+        await callback.answer("Exercise not found." if lang == "en" else "Упражнение не найдено.", show_alert=True)
+        return
+
+    await callback.message.answer(_technique_text(ex, lang), parse_mode="HTML")
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("rest:"))
@@ -468,7 +559,7 @@ async def rest_done(callback: CallbackQuery, state: FSMContext, session: AsyncSe
     muscle_names = await _muscle_names_by_id(session, lang)
     await safe_edit_text(callback.message,
         format_exercise_card(se, ex, next_set, modifier, muscle_names_by_id=muscle_names, lang=lang),
-        reply_markup=set_log_kb(se_id, next_set, se.target_reps, se.target_weight_kg or 0.0, exercise_technique_url(ex), lang=lang),
+        reply_markup=exercise_log_kb(ex, se_id, next_set, se.target_reps, se.target_weight_kg or 0.0, lang=lang),
         parse_mode="HTML"
     )
 
@@ -496,7 +587,7 @@ async def next_exercise(callback: CallbackQuery, state: FSMContext, session: Asy
     await send_exercise_card(
         callback.message,
         format_exercise_card(se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names, lang=lang),
-        reply_markup=set_log_kb(se_id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang),
+        reply_markup=exercise_log_kb(ex, se_id, 1, reps, weight, is_warmup=phase == "warmup", lang=lang),
         ex=ex,
     )
 
@@ -540,7 +631,7 @@ async def resume_workout(callback, state, session, user: User):
     await send_exercise_card(
         callback.message,
         "▶️ " + format_exercise_card(se, ex, 1, modifier, is_warmup=phase == "warmup", warmup_index=1, muscle_names_by_id=muscle_names, lang=lang),
-        reply_markup=set_log_kb(se.id, 1, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang),
+        reply_markup=exercise_log_kb(ex, se.id, 1, reps, weight, is_warmup=phase == "warmup", lang=lang),
         ex=ex,
         edit_text=True,
     )
@@ -659,9 +750,7 @@ async def do_replace_exercise(callback, state, session):
         prefix + format_exercise_card(
             se, new_ex, cs, modifier, is_warmup=phase == "warmup", warmup_index=warmup_index, muscle_names_by_id=muscle_names, lang=lang,
         ),
-        reply_markup=set_log_kb(
-            se_id, visible_set, reps, weight, exercise_technique_url(new_ex), is_warmup=phase == "warmup", lang=lang,
-        ),
+        reply_markup=exercise_log_kb(new_ex, se_id, visible_set, reps, weight, is_warmup=phase == "warmup", lang=lang),
         ex=new_ex,
         edit_text=True,
     )
@@ -687,7 +776,7 @@ async def cancel_replace(callback, state, session):
     muscle_names = await _muscle_names_by_id(session, lang)
     await safe_edit_text(callback.message,
         format_exercise_card(se, ex, cs, modifier, is_warmup=phase == "warmup", warmup_index=warmup_index, muscle_names_by_id=muscle_names, lang=lang),
-        reply_markup=set_log_kb(se_id, visible_set, reps, weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang),
+        reply_markup=exercise_log_kb(ex, se_id, visible_set, reps, weight, is_warmup=phase == "warmup", lang=lang),
         parse_mode="HTML"
     )
     await callback.answer()
@@ -716,9 +805,9 @@ async def set_too_hard(callback, state, session):
         se.target_weight_kg = new_weight
     await state.update_data(current_weight=new_weight, current_reps=new_reps, feedback_rpe=9)
     await session.commit()
-    await callback.message.edit_reply_markup(reply_markup=set_log_kb(
-        se_id, visible_set, new_reps, new_weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang,
-    ))
+    await callback.message.edit_reply_markup(
+        reply_markup=exercise_log_kb(ex, se_id, visible_set, new_reps, new_weight, is_warmup=phase == "warmup", lang=lang)
+    )
     await callback.answer(
         f"⬇️ Lowered to {new_weight:.1f} kg / {new_reps} reps."
         if lang == "en"
@@ -749,9 +838,9 @@ async def set_too_easy(callback, state, session):
         se.target_weight_kg = new_weight
     await state.update_data(current_weight=new_weight, current_reps=new_reps, feedback_rpe=6)
     await session.commit()
-    await callback.message.edit_reply_markup(reply_markup=set_log_kb(
-        se_id, visible_set, new_reps, new_weight, exercise_technique_url(ex), is_warmup=phase == "warmup", lang=lang,
-    ))
+    await callback.message.edit_reply_markup(
+        reply_markup=exercise_log_kb(ex, se_id, visible_set, new_reps, new_weight, is_warmup=phase == "warmup", lang=lang)
+    )
     await callback.answer(
         f"⬆️ Raised to {new_weight:.1f} kg / {new_reps} reps."
         if lang == "en"
