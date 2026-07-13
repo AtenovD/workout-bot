@@ -171,7 +171,9 @@ async def ask_required_channel(callback: CallbackQuery, state: FSMContext, user:
         "Send the public channel username or link, for example:\n"
         "<code>@my_channel</code>\n"
         "<code>https://t.me/my_channel</code>\n\n"
-        "Send <code>off</code> to disable. The bot must be able to check channel members.",
+        "For a private channel, send chat id + invite link:\n"
+        "<code>-1001234567890 https://t.me/+invite</code>\n\n"
+        "Send <code>off</code> to disable. The bot must be an admin/member of the channel and must be able to check members.",
         parse_mode="HTML",
     )
     await callback.answer()
@@ -189,8 +191,18 @@ async def save_required_channel(message: Message, state: FSMContext, session: As
         await message.answer("Channel setup cancelled.", reply_markup=main_menu_keyboard(telegram_id=message.from_user.id))
         return
 
-    if raw.lower() not in {"off", "clear", "none", "-", "disable", "disabled"} and not normalize_required_channel(raw):
-        await message.answer("I cannot recognize this channel. Send @channel, https://t.me/channel, or off.")
+    channel_candidate = normalize_required_channel(raw)
+    if raw.lower() not in {"off", "clear", "none", "-", "disable", "disabled"} and not channel_candidate:
+        await message.answer("I cannot recognize this channel. Send @channel, https://t.me/channel, -100... https://t.me/+invite, or off.")
+        return
+    if channel_candidate and not channel_candidate.verifiable:
+        await message.answer(
+            "This invite link cannot be verified by Telegram Bot API by itself.\n\n"
+            "For private channels send:\n"
+            "<code>-1001234567890 https://t.me/+invite</code>\n\n"
+            "The bot must also be added to the channel.",
+            parse_mode="HTML",
+        )
         return
 
     channel = await set_required_en_channel(session, raw)

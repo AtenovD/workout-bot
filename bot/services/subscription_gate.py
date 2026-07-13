@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass
 from html import escape
 
@@ -21,6 +23,7 @@ class ChannelRef:
     chat_ref: str
     url: str
     display: str
+    verifiable: bool = True
 
 
 @dataclass(frozen=True)
@@ -36,14 +39,37 @@ def normalize_required_channel(raw: str | None) -> ChannelRef | None:
     if value.lower() in {"off", "clear", "none", "-", "disable", "disabled"}:
         return None
 
+    if value.startswith("{"):
+        try:
+            payload = json.loads(value)
+        except json.JSONDecodeError:
+            return None
+        chat_ref = str(payload.get("chat_ref") or "").strip()
+        url = str(payload.get("url") or "").strip()
+        display = str(payload.get("display") or url or chat_ref).strip()
+        if not chat_ref or not url:
+            return None
+        return ChannelRef(raw=value, chat_ref=chat_ref, url=url, display=display)
+
+    parts = value.split()
+    if len(parts) == 2 and re.fullmatch(r"-100\d{6,}", parts[0]):
+        url = parts[1]
+        if url.startswith("t.me/"):
+            url = f"https://{url}"
+        if not (url.startswith("https://t.me/") or url.startswith("http://t.me/")):
+            return None
+        url = url.replace("http://", "https://", 1)
+        raw_json = json.dumps({"chat_ref": parts[0], "url": url, "display": url}, ensure_ascii=False)
+        return ChannelRef(raw=raw_json, chat_ref=parts[0], url=url, display=url)
+
     if value.startswith("https://t.me/") or value.startswith("http://t.me/"):
         url = value.replace("http://", "https://", 1)
         slug = url.split("t.me/", 1)[1].strip("/")
         if slug and not slug.startswith("+"):
             chat_ref = f"@{slug.split('/', 1)[0]}"
+            return ChannelRef(raw=value, chat_ref=chat_ref, url=url, display=url)
         else:
-            chat_ref = value
-        return ChannelRef(raw=value, chat_ref=chat_ref, url=url, display=url)
+            return ChannelRef(raw=value, chat_ref="", url=url, display=f"{url} (chat id required)", verifiable=False)
 
     if value.startswith("t.me/"):
         return normalize_required_channel(f"https://{value}")
@@ -89,6 +115,8 @@ async def check_required_subscription(bot: Bot, session: AsyncSession, user: Use
     channel = await get_required_en_channel(session)
     if not channel:
         return SubscriptionCheck(ok=True)
+    if not channel.verifiable or not channel.chat_ref:
+        return SubscriptionCheck(ok=False, verify_error=True)
 
     try:
         member = await bot.get_chat_member(channel.chat_ref, user.telegram_id)

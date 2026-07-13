@@ -73,6 +73,7 @@ class MockSession(AiohttpSession):
         super().__init__(api=MockTelegramServer(base="http://testserver/bot", file="http://testserver/file/bot"))
         self.requests = []
         self.chat_member_status = "member"
+        self.chat_member_error_for_invite = True
 
     async def make_request(self, bot, method, **kwargs):
         method_name = getattr(method, "__api_method__", method.__class__.__name__)
@@ -83,6 +84,8 @@ class MockSession(AiohttpSession):
         if method_name == "getChatMember":
             if self.chat_member_status == "error":
                 raise RuntimeError("Telegram cannot verify membership")
+            if self.chat_member_error_for_invite and str(payload.get("chat_id", "")).startswith("https://t.me/+"):
+                raise RuntimeError("Invite links are not valid chat ids")
             user_id = payload.get("user_id", 123456789)
             return {
                 "status": self.chat_member_status,

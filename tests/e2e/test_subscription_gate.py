@@ -6,7 +6,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bot.services.admin_access import set_admins
-from bot.services.subscription_gate import set_required_en_channel
+from bot.services.subscription_gate import normalize_required_channel, set_required_en_channel
 from models.app_setting import AppSetting
 from models.profile import Profile
 from models.user import User
@@ -119,6 +119,24 @@ async def test_subscribed_english_user_enters_main_menu(dispatcher, bot, session
 
 
 @pytest.mark.asyncio
+async def test_private_invite_with_chat_id_is_checked_by_numeric_chat_id(dispatcher, bot, session, engine, registered_user):
+    await _set_channel(engine, "-1001234567890 https://t.me/+abc123")
+    maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with maker() as setup:
+        user = (await setup.execute(select(User).where(User.telegram_id == registered_user.telegram_id))).scalar_one()
+        user.language_code = "en"
+        await setup.commit()
+
+    bot.session.chat_member_status = "member"
+    requests = await _feed_message(dispatcher, bot, session, "/start", registered_user.telegram_id)
+    get_member = [r for r in requests if r["method"] == "getChatMember"]
+
+    assert get_member
+    assert get_member[0]["payload"]["chat_id"] == "-1001234567890"
+    assert "GYM Control Center" in _texts(requests)
+
+
+@pytest.mark.asyncio
 async def test_verification_error_keeps_english_user_locked(dispatcher, bot, session, engine, registered_user):
     await _set_channel(engine)
     maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -159,3 +177,28 @@ async def test_admin_can_set_required_english_channel(dispatcher, bot, session):
     saved = await _feed_message(dispatcher, bot, session, "@new_gym_channel", admin_uid)
     assert "enabled" in _texts(saved)
     assert "@new_gym_channel" in _texts(saved)
+
+
+@pytest.mark.asyncio
+async def test_admin_rejects_private_invite_without_chat_id(dispatcher, bot, session):
+    admin_uid = 700701
+    set_admins([admin_uid])
+
+    await _feed_message(dispatcher, bot, session, "/admin", admin_uid)
+    await _feed_callback(dispatcher, bot, session, "admin:channel", admin_uid)
+    saved = await _feed_message(dispatcher, bot, session, "https://t.me/+abc123", admin_uid)
+
+    assert "cannot be verified" in _texts(saved)
+    assert "-1001234567890" in _texts(saved)
+
+
+def test_channel_normalization_supports_private_chat_id_plus_invite():
+    private = normalize_required_channel("-1001234567890 https://t.me/+abc123")
+    invite_only = normalize_required_channel("https://t.me/+abc123")
+
+    assert private is not None
+    assert private.chat_ref == "-1001234567890"
+    assert private.url == "https://t.me/+abc123"
+    assert private.verifiable is True
+    assert invite_only is not None
+    assert invite_only.verifiable is False
