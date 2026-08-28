@@ -1,0 +1,109 @@
+<svg viewBox="0 0 1200 560" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --card-bg: #eef2ff;
+      --card-border: #c7d2fe;
+      --text: #1e1b4b;
+      --text-muted: #4338ca;
+      --chip-bg: #e0e7ff;
+      --chip-border: #a5b4fc;
+      --arrow: #6366f1;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0a0a1f;
+        --card-bg: #16163a;
+        --card-border: #312e81;
+        --text: #e0e7ff;
+        --text-muted: #a5b4fc;
+        --chip-bg: #1e1b4b;
+        --chip-border: #4f46e5;
+        --arrow: #818cf8;
+      }
+    }
+    text { fill: var(--text); }
+    .muted { fill: var(--text-muted); }
+    .title { font-size: 28px; font-weight: 700; }
+    .subtitle { font-size: 14.5px; }
+    .stage-label { font-size: 15px; font-weight: 700; }
+    .stage-sub { font-size: 11.5px; }
+    .card { fill: var(--card-bg); stroke: var(--card-border); stroke-width: 1.5; }
+    .chip { fill: var(--chip-bg); stroke: var(--chip-border); stroke-width: 1.2; }
+    .arrow { stroke: var(--arrow); stroke-width: 2.5; fill: none; }
+    .arrowhead { fill: var(--arrow); }
+  </style>
+
+  <rect x="0" y="0" width="1200" height="560" fill="var(--bg)"/>
+  <text x="40" y="44" class="title">Workout Bot — request flow</text>
+  <text x="40" y="68" class="subtitle muted">Telegram update → aiogram Dispatcher → middlewares → handlers → services → PostgreSQL</text>
+
+  <rect x="40" y="120" width="170" height="120" rx="14" class="card"/>
+  <text x="60" y="150" class="stage-label">📱 Telegram</text>
+  <text x="60" y="176" class="stage-sub muted">user sends a</text>
+  <text x="60" y="192" class="stage-sub muted">message or taps</text>
+  <text x="60" y="208" class="stage-sub muted">an inline button</text>
+
+  <path d="M 218 180 L 260 180" class="arrow"/>
+  <polygon points="260,180 250,174 250,186" class="arrowhead"/>
+
+  <rect x="270" y="100" width="220" height="230" rx="14" class="card"/>
+  <text x="290" y="130" class="stage-label">🧭 aiogram Dispatcher</text>
+  <rect x="290" y="146" width="180" height="34" rx="8" class="chip"/>
+  <text x="304" y="167" class="stage-sub">DbSessionMiddleware</text>
+  <rect x="290" y="188" width="180" height="34" rx="8" class="chip"/>
+  <text x="304" y="209" class="stage-sub">UserMiddleware</text>
+  <text x="290" y="248" class="stage-sub muted">routes the update to</text>
+  <text x="290" y="264" class="stage-sub muted">the matching Router</text>
+  <text x="290" y="280" class="stage-sub muted">handler by state/filter</text>
+
+  <path d="M 498 220 L 540 220" class="arrow"/>
+  <polygon points="540,220 530,214 530,226" class="arrowhead"/>
+
+  <rect x="550" y="90" width="230" height="260" rx="14" class="card"/>
+  <text x="570" y="120" class="stage-label">🎮 Handlers</text>
+  <text x="570" y="146" class="stage-sub muted">workout · progress · stats</text>
+  <text x="570" y="162" class="stage-sub muted">profile · achievements</text>
+  <text x="570" y="178" class="stage-sub muted">schedule · onboarding</text>
+  <path d="M 620 210 L 620 250" class="arrow"/>
+  <polygon points="620,250 614,240 626,240" class="arrowhead"/>
+  <text x="570" y="278" class="stage-label" font-size="13">⚙️ Services</text>
+  <text x="570" y="300" class="stage-sub muted">workout_generator</text>
+  <text x="570" y="316" class="stage-sub muted">progression · gamification</text>
+  <text x="570" y="332" class="stage-sub muted">calories · stats_chart</text>
+
+  <path d="M 788 220 L 830 220" class="arrow"/>
+  <polygon points="830,220 820,214 820,226" class="arrowhead"/>
+
+  <rect x="840" y="120" width="150" height="120" rx="14" class="card"/>
+  <text x="860" y="150" class="stage-label">🗄 Models</text>
+  <text x="860" y="176" class="stage-sub muted">SQLAlchemy 2.0</text>
+  <text x="860" y="192" class="stage-sub muted">async ORM</text>
+
+  <path d="M 998 180 L 1040 180" class="arrow"/>
+  <polygon points="1040,180 1030,174 1030,186" class="arrowhead"/>
+
+  <rect x="1050" y="120" width="110" height="120" rx="14" class="card"/>
+  <text x="1065" y="150" class="stage-label" font-size="13">🐘 Postgres</text>
+  <text x="1065" y="176" class="stage-sub muted">+ Redis</text>
+  <text x="1065" y="192" class="stage-sub muted">FSM store</text>
+
+  <!-- bottom row -->
+  <rect x="40" y="380" width="1120" height="140" rx="16" class="card"/>
+  <text x="60" y="412" class="stage-label">Supporting infrastructure</text>
+  <rect x="60" y="428" width="170" height="70" rx="10" class="chip"/>
+  <text x="75" y="452" class="stage-sub">FastAPI + uvicorn</text>
+  <text x="75" y="470" class="stage-sub muted">Web API layer</text>
+  <rect x="250" y="428" width="170" height="70" rx="10" class="chip"/>
+  <text x="265" y="452" class="stage-sub">MinIO (S3)</text>
+  <text x="265" y="470" class="stage-sub muted">Media storage</text>
+  <rect x="440" y="428" width="170" height="70" rx="10" class="chip"/>
+  <text x="455" y="452" class="stage-sub">Alembic</text>
+  <text x="455" y="470" class="stage-sub muted">DB migrations</text>
+  <rect x="630" y="428" width="170" height="70" rx="10" class="chip"/>
+  <text x="645" y="452" class="stage-sub">Matplotlib</text>
+  <text x="645" y="470" class="stage-sub muted">Progress charts</text>
+  <rect x="820" y="428" width="320" height="70" rx="10" class="chip"/>
+  <text x="835" y="452" class="stage-sub">Docker Compose</text>
+  <text x="835" y="470" class="stage-sub muted">bot + api + postgres + redis + minio + nginx, one command up</text>
+</svg>

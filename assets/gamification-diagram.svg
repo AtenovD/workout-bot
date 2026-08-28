@@ -1,0 +1,97 @@
+<svg viewBox="0 0 1200 520" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --card-bg: #fdf4ff;
+      --card-border: #f0abfc;
+      --text: #4a044e;
+      --text-muted: #a21caf;
+      --chip-bg: #fae8ff;
+      --chip-border: #e879f9;
+      --arrow: #d946ef;
+      --bar-bg: #fae8ff;
+      --bar-fill: #d946ef;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #170a19;
+        --card-bg: #26102a;
+        --card-border: #86198f;
+        --text: #fae8ff;
+        --text-muted: #e879f9;
+        --chip-bg: #3b1440;
+        --chip-border: #c026d3;
+        --arrow: #e879f9;
+        --bar-bg: #3b1440;
+        --bar-fill: #e879f9;
+      }
+    }
+    text { fill: var(--text); }
+    .muted { fill: var(--text-muted); }
+    .title { font-size: 28px; font-weight: 700; }
+    .subtitle { font-size: 14.5px; }
+    .stage-label { font-size: 14px; font-weight: 700; }
+    .stage-sub { font-size: 11.5px; }
+    .card { fill: var(--card-bg); stroke: var(--card-border); stroke-width: 1.5; }
+    .chip { fill: var(--chip-bg); stroke: var(--chip-border); stroke-width: 1.2; }
+    .arrow { stroke: var(--arrow); stroke-width: 2.5; fill: none; }
+    .arrowhead { fill: var(--arrow); }
+  </style>
+
+  <rect x="0" y="0" width="1200" height="520" fill="var(--bg)"/>
+  <text x="40" y="44" class="title">Workout Bot — gamification loop</text>
+  <text x="40" y="68" class="subtitle muted">Every logged set feeds XP, streaks, achievements and titles</text>
+
+  <!-- loop stages -->
+  <rect x="40" y="110" width="220" height="130" rx="16" class="card"/>
+  <text x="60" y="140" class="stage-label">✅ Log a set</text>
+  <text x="60" y="164" class="stage-sub muted">Reps, weight, RPE</text>
+  <text x="60" y="182" class="stage-sub muted">modifier logged</text>
+
+  <path d="M 268 175 L 310 175" class="arrow"/>
+  <polygon points="310,175 300,169 300,181" class="arrowhead"/>
+
+  <rect x="320" y="110" width="220" height="130" rx="16" class="card"/>
+  <text x="340" y="140" class="stage-label">⭐ XP awarded</text>
+  <text x="340" y="164" class="stage-sub muted">pr_detection +</text>
+  <text x="340" y="182" class="stage-sub muted">achievement_checker run</text>
+
+  <path d="M 548 175 L 590 175" class="arrow"/>
+  <polygon points="590,175 580,169 580,181" class="arrowhead"/>
+
+  <rect x="600" y="110" width="220" height="130" rx="16" class="card"/>
+  <text x="620" y="140" class="stage-label">🏅 Achievement?</text>
+  <text x="620" y="164" class="stage-sub muted">25+ badges checked</text>
+  <text x="620" y="182" class="stage-sub muted">unlocked ones notify</text>
+
+  <path d="M 828 175 L 870 175" class="arrow"/>
+  <polygon points="870,175 860,169 860,181" class="arrowhead"/>
+
+  <rect x="880" y="110" width="260" height="130" rx="16" class="card"/>
+  <text x="900" y="140" class="stage-label">👑 Level &amp; title</text>
+  <text x="900" y="164" class="stage-sub muted">Beginner → ... → Gym God</text>
+  <text x="900" y="182" class="stage-sub muted">shown on /profile</text>
+
+  <!-- progress bar of titles -->
+  <text x="40" y="290" class="stage-label">Title progression</text>
+  <rect x="40" y="306" width="1120" height="22" rx="11" fill="var(--bar-bg)"/>
+  <rect x="40" y="306" width="420" height="22" rx="11" fill="var(--bar-fill)"/>
+  <text x="60" y="321" font-size="11" fill="#ffffff">Beginner → Novice → Athlete</text>
+  <text x="500" y="321" class="stage-sub muted">Veteran → Elite → Gym God</text>
+
+  <!-- streaks + challenges + referral -->
+  <rect x="40" y="360" width="360" height="120" rx="16" class="card"/>
+  <text x="60" y="392" class="stage-label">🔥 Streaks</text>
+  <text x="60" y="416" class="stage-sub muted">Consecutive training days</text>
+  <text x="60" y="434" class="stage-sub muted">tracked and shown in /stats</text>
+
+  <rect x="420" y="360" width="360" height="120" rx="16" class="card"/>
+  <text x="440" y="392" class="stage-label">🎯 Challenges</text>
+  <text x="440" y="416" class="stage-sub muted">Time-boxed goals with</text>
+  <text x="440" y="434" class="stage-sub muted">their own XP payout</text>
+
+  <rect x="800" y="360" width="340" height="120" rx="16" class="card"/>
+  <text x="820" y="392" class="stage-label">🤝 Referrals</text>
+  <text x="820" y="416" class="stage-sub muted">Inviting friends grants</text>
+  <text x="820" y="434" class="stage-sub muted">bonus XP to both sides</text>
+</svg>

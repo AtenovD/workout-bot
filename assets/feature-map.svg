@@ -1,0 +1,88 @@
+<svg viewBox="0 0 1200 560" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --card-bg: #fff7ed;
+      --card-border: #fed7aa;
+      --text: #431407;
+      --text-muted: #c2410c;
+      --chip-bg: #ffedd5;
+      --chip-border: #fdba74;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a0f05;
+        --card-bg: #2a160a;
+        --card-border: #9a3412;
+        --text: #ffedd5;
+        --text-muted: #fdba74;
+        --chip-bg: #3a1d0d;
+        --chip-border: #c2410c;
+      }
+    }
+    text { fill: var(--text); }
+    .muted { fill: var(--text-muted); }
+    .title { font-size: 28px; font-weight: 700; }
+    .subtitle { font-size: 14.5px; }
+    .card-title { font-size: 16px; font-weight: 700; }
+    .item { font-size: 12px; }
+    .card { fill: var(--card-bg); stroke: var(--card-border); stroke-width: 1.5; }
+  </style>
+
+  <rect x="0" y="0" width="1200" height="560" fill="var(--bg)"/>
+  <text x="40" y="44" class="title">Workout Bot — feature map</text>
+  <text x="40" y="68" class="subtitle muted">Everything a solo lifter needs, end to end</text>
+
+  <!-- 2x3 grid of feature cards -->
+  <g>
+    <rect x="40" y="100" width="360" height="140" rx="16" class="card"/>
+    <text x="60" y="132" class="card-title">🧭 Onboarding</text>
+    <text x="60" y="158" class="item muted">12-step profile calibration</text>
+    <text x="60" y="178" class="item muted">Goal, experience, equipment, health</text>
+    <text x="60" y="198" class="item muted">Feeds the workout generator from day one</text>
+  </g>
+
+  <g>
+    <rect x="420" y="100" width="360" height="140" rx="16" class="card"/>
+    <text x="440" y="132" class="card-title">🏋️ Workout generator</text>
+    <text x="440" y="158" class="item muted">Adaptive exercise selection</text>
+    <text x="440" y="178" class="item muted">Based on profile + available equipment</text>
+    <text x="440" y="198" class="item muted">Set logging with difficulty modifiers</text>
+  </g>
+
+  <g>
+    <rect x="800" y="100" width="360" height="140" rx="16" class="card"/>
+    <text x="820" y="132" class="card-title">📈 Progressive overload</text>
+    <text x="820" y="158" class="item muted">Auto-calculates the next weight</text>
+    <text x="820" y="178" class="item muted">Plateau detection</text>
+    <text x="820" y="198" class="item muted">Deload-on-return logic</text>
+  </g>
+
+  <g>
+    <rect x="40" y="260" width="360" height="140" rx="16" class="card"/>
+    <text x="60" y="292" class="card-title">📊 Stats &amp; charts</text>
+    <text x="60" y="318" class="item muted">Volume, calories, streaks, PRs</text>
+    <text x="60" y="338" class="item muted">Matplotlib progress charts</text>
+    <text x="60" y="358" class="item muted">Body measurement tracking</text>
+  </g>
+
+  <g>
+    <rect x="420" y="260" width="360" height="140" rx="16" class="card"/>
+    <text x="440" y="292" class="card-title">🏆 Gamification</text>
+    <text x="440" y="318" class="item muted">25+ achievements with XP rewards</text>
+    <text x="440" y="338" class="item muted">Levels and titles (Beginner → Gym God)</text>
+    <text x="440" y="358" class="item muted">Challenges and referrals</text>
+  </g>
+
+  <g>
+    <rect x="800" y="260" width="360" height="140" rx="16" class="card"/>
+    <text x="820" y="292" class="card-title">⏰ Schedule &amp; reminders</text>
+    <text x="820" y="318" class="item muted">Fixed or spontaneous training mode</text>
+    <text x="820" y="338" class="item muted">Smart reminders</text>
+    <text x="820" y="358" class="item muted">Rest timer between sets</text>
+  </g>
+
+  <rect x="40" y="430" width="1120" height="90" rx="16" class="card"/>
+  <text x="60" y="462" class="card-title">Admin</text>
+  <text x="60" y="486" class="item muted">Admin handlers for user/content management, plus a weekly report service for retention tracking.</text>
+</svg>

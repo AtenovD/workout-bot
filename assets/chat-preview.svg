@@ -1,0 +1,114 @@
+<svg viewBox="0 0 1200 600" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel-bg: #f0fdf4;
+      --header-bg: #15803d;
+      --header-text: #f0fdf4;
+      --bubble-bg: #ffffff;
+      --bubble-border: #bbf7d0;
+      --meta: #16a34a;
+      --text: #052e16;
+      --text-muted: #15803d;
+      --btn-bg: #ffffff;
+      --btn-border: #86efac;
+      --btn-text: #15803d;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #041a0d;
+        --panel-bg: #062512;
+        --header-bg: #14532d;
+        --header-text: #dcfce7;
+        --bubble-bg: #0a3320;
+        --bubble-border: #14532d;
+        --meta: #4ade80;
+        --text: #dcfce7;
+        --text-muted: #4ade80;
+        --btn-bg: #0a3320;
+        --btn-border: #22c55e;
+        --btn-text: #4ade80;
+      }
+    }
+    text { fill: var(--text); }
+    .muted { fill: var(--text-muted); }
+    .meta { fill: var(--meta); font-size: 11px; }
+    .title { font-size: 26px; font-weight: 700; }
+    .subtitle { font-size: 14px; }
+    .bubble-text { font-size: 12.5px; }
+    .bubble-strong { font-size: 13px; font-weight: 700; }
+    .btn-text { font-size: 12px; font-weight: 700; fill: var(--btn-text); }
+    .caption { font-size: 13px; font-weight: 600; }
+  </style>
+
+  <rect x="0" y="0" width="1200" height="600" fill="var(--bg)"/>
+  <text x="40" y="42" class="title">Workout Bot — a session in the chat</text>
+  <text x="40" y="64" class="subtitle muted">From logging a set to unlocking an achievement</text>
+
+  <!-- phone 1: logging a set -->
+  <g transform="translate(60, 96)">
+    <rect x="0" y="0" width="330" height="460" rx="28" fill="var(--panel-bg)" stroke="var(--bubble-border)" stroke-width="1.5"/>
+    <rect x="0" y="0" width="330" height="56" rx="28" fill="var(--header-bg)"/>
+    <rect x="0" y="28" width="330" height="28" fill="var(--header-bg)"/>
+    <circle cx="34" cy="28" r="16" fill="#ffffff" opacity="0.25"/>
+    <text x="60" y="24" fill="var(--header-text)" font-size="14" font-weight="700">Workout Bot</text>
+    <text x="60" y="40" fill="var(--header-text)" font-size="11" opacity="0.85">Push Day — Bench Press</text>
+
+    <rect x="16" y="76" width="298" height="70" rx="12" fill="var(--bubble-bg)" stroke="var(--bubble-border)"/>
+    <text x="30" y="100" class="bubble-strong">Set 3 of 4</text>
+    <text x="30" y="120" class="bubble-text">Target: 80kg × 8 reps</text>
+    <text x="30" y="138" class="bubble-text" opacity="0.7">Last set: 80kg × 9 ✅</text>
+
+    <rect x="16" y="156" width="298" height="46" rx="11" fill="var(--btn-bg)" stroke="var(--btn-border)"/>
+    <text x="165" y="184" text-anchor="middle" class="btn-text">✅ Done as planned</text>
+    <rect x="16" y="210" width="145" height="40" rx="10" fill="var(--btn-bg)" stroke="var(--btn-border)"/>
+    <text x="88" y="235" text-anchor="middle" class="btn-text" font-size="11">✏️ Log different</text>
+    <rect x="169" y="210" width="145" height="40" rx="10" fill="var(--btn-bg)" stroke="var(--btn-border)"/>
+    <text x="241" y="235" text-anchor="middle" class="btn-text" font-size="11">⏭ Skip set</text>
+
+    <rect x="16" y="264" width="298" height="60" rx="12" fill="var(--bubble-bg)" stroke="var(--bubble-border)"/>
+    <text x="30" y="288" class="bubble-strong">⏱ Rest: 90s</text>
+    <rect x="30" y="298" width="120" height="16" rx="8" fill="var(--btn-border)" opacity="0.5"/>
+    <rect x="30" y="298" width="70" height="16" rx="8" fill="var(--meta)"/>
+  </g>
+
+  <!-- phone 2: achievement unlocked -->
+  <g transform="translate(430, 96)">
+    <rect x="0" y="0" width="330" height="460" rx="28" fill="var(--panel-bg)" stroke="var(--bubble-border)" stroke-width="1.5"/>
+    <rect x="0" y="0" width="330" height="56" rx="28" fill="var(--header-bg)"/>
+    <rect x="0" y="28" width="330" height="28" fill="var(--header-bg)"/>
+    <circle cx="34" cy="28" r="16" fill="#ffffff" opacity="0.25"/>
+    <text x="60" y="24" fill="var(--header-text)" font-size="14" font-weight="700">Workout Bot</text>
+    <text x="60" y="40" fill="var(--header-text)" font-size="11" opacity="0.85">Achievements</text>
+
+    <rect x="16" y="76" width="298" height="100" rx="12" fill="var(--bubble-bg)" stroke="var(--bubble-border)"/>
+    <text x="30" y="102" class="bubble-strong">🏅 Achievement unlocked!</text>
+    <text x="30" y="126" class="bubble-text">"Century Club" — logged</text>
+    <text x="30" y="144" class="bubble-text">100 sets total</text>
+    <text x="30" y="164" class="bubble-text" opacity="0.75">+250 XP</text>
+
+    <rect x="16" y="188" width="298" height="90" rx="12" fill="var(--bubble-bg)" stroke="var(--bubble-border)"/>
+    <text x="30" y="212" class="bubble-strong">👑 Level up!</text>
+    <text x="30" y="234" class="bubble-text">Athlete → Veteran</text>
+    <text x="30" y="256" class="bubble-text" opacity="0.75">7-day streak keeps rolling 🔥</text>
+
+    <rect x="16" y="290" width="298" height="46" rx="11" fill="var(--btn-bg)" stroke="var(--btn-border)"/>
+    <text x="165" y="318" text-anchor="middle" class="btn-text">📊 View progress</text>
+  </g>
+
+  <!-- summary card -->
+  <rect x="800" y="96" width="360" height="460" rx="18" fill="var(--panel-bg)" stroke="var(--bubble-border)" stroke-width="1.5"/>
+  <text x="820" y="130" class="bubble-strong" font-size="15">What's happening under the hood</text>
+  <text x="820" y="164" class="bubble-text">1. Set logged → services/progression.py</text>
+  <text x="820" y="182" class="bubble-text">computes the next target weight</text>
+  <text x="820" y="212" class="bubble-text">2. pr_detection.py checks for a</text>
+  <text x="820" y="230" class="bubble-text">new personal record</text>
+  <text x="820" y="260" class="bubble-text">3. achievement_checker.py scans</text>
+  <text x="820" y="278" class="bubble-text">all 25+ badge conditions</text>
+  <text x="820" y="308" class="bubble-text">4. gamification.py applies XP,</text>
+  <text x="820" y="326" class="bubble-text">recalculates level/title</text>
+  <text x="820" y="356" class="bubble-text">5. rest_timer.py runs the</text>
+  <text x="820" y="374" class="bubble-text">countdown to the next set</text>
+  <text x="820" y="404" class="bubble-text" opacity="0.75">All of this happens between one</text>
+  <text x="820" y="422" class="bubble-text" opacity="0.75">tap and the bot's next reply.</text>
+</svg>
